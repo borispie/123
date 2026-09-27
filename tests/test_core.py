@@ -139,7 +139,10 @@ def test_data_vars_from_csv(tmp_path, monkeypatch):
             fetch_daily.row("defi", "ALL", "stablecoin_chg_7d", 0.5, "%", "DefiLlama", "u"),
             fetch_daily.row("macro", "us5y", "value", 5.03, "%", "FRED", "u", ref_date="2026-09-23"),
             fetch_daily.row("macro", "us5y", "chg_1w", 0.23, "pp", "FRED", "u"),
-            fetch_daily.row("polymarket", "BTC 10 月收涨", "yes_prob", 58.0, "%", "Polymarket", "u")]
+            fetch_daily.row("macro", "fed_upper", "value", 4.0, "%", "FRED", "u", ref_date="2026-09-26"),
+            fetch_daily.row("polymarket", "BTC 10 月收涨", "yes_prob", 58.0, "%", "Polymarket", "u"),
+            fetch_daily.row("polymarket", "BTC ↑ 1,000,000", "yes_prob", 0.3, "%", "Polymarket", "u"),
+            fetch_daily.row("polymarket", "BTC ↓ 55,000", "yes_prob", 8.5, "%", "Polymarket", "u")]
     import csv
     p = tmp_path / "2099-01-01.csv"
     with open(p, "w", newline="", encoding="utf-8-sig") as fh:
@@ -150,3 +153,13 @@ def test_data_vars_from_csv(tmp_path, monkeypatch):
     assert v["stable_mcap"] == "$300.00B" and v["stable_7d"] == "+0.50%"
     assert v["us5y"] == "5.03%" and v["us5y_chg_1w"] == "+0.23 个百分点"
     assert "BTC 10 月收涨：市场给 58%" in v["pm_block"]
+    assert "市场给 0.3%" in v["pm_block"] and "市场给 8.5%" in v["pm_block"]
+    # 收益率的日期不能被利率上限（周末也更新）覆盖
+    assert v["macro_date"] == "2026-09-23" and v["fed_upper_date"] == "2026-09-26"
+
+
+def test_todo_items_listed_once():
+    from make_post_pack import todo_items
+    parts = {"主贴": "如果【需补充：数据】高于预期\n【需补充：数据】", "短推": "重点：【需补充：一个宏观事件】", "别的": "【需补充：不算】"}
+    assert todo_items(parts) == ["【需补充：数据】", "【需补充：一个宏观事件】"]
+    assert todo_items({"主贴": "都齐了"}) == []

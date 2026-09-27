@@ -98,11 +98,15 @@ def data_vars(d: Daily | None) -> dict:
         x, c = d.v("macro", name, "value"), d.v("macro", name, "chg_1w")
         if x is not None:
             v[name] = f"{x:.2f}%"
-            v["macro_date"] = d.ref_date("macro", name, "value")
+            v[f"{name}_date"] = d.ref_date("macro", name, "value")
+            # macro_date 是美债收益率的日期。利率上限周末也有数，日期更新，不能拿来标收益率
+            if name != "fed_upper":
+                v.setdefault("macro_date", v[f"{name}_date"])
         if c is not None:
             v[f"{name}_chg_1w"] = f"{fmt_signed(c, MINUS, 2)} 个百分点"
     pm = d.rows("polymarket")
-    lines = [f"- {r['symbol']}：市场给 {float(r['value']):.0f}%" for _, r in pm.iterrows() if r["value"] != ""]
+    # :g 保留 CSV 里的一位小数：0.3% 不会变成 0%，8.5% 和 7.5% 不会都变成 8%
+    lines = [f"- {r['symbol']}：市场给 {float(r['value']):g}%" for _, r in pm.iterrows() if r["value"] != ""]
     if lines:
         v["pm_list"] = "\n".join(lines)
         v["pm_block"] = "\n市场怎么看（Polymarket）：\n" + v["pm_list"] + "\n"
@@ -246,6 +250,12 @@ def template_for(column: str):
     return matches[0]
 
 
+def todo_items(parts: dict[str, str]) -> list[str]:
+    """主贴、回复、短推里所有【需补充：xxx】，去重，写在发布包最后。"""
+    text = "\n".join(parts.get(k, "") for k in ("主贴", "回复", "短推"))
+    return list(dict.fromkeys(re.findall(r"【需补充：[^】]*】", text)))
+
+
 def intent(text: str) -> str:
     return "https://x.com/intent/post?text=" + quote(text)
 
@@ -275,12 +285,16 @@ def main():
             md += [f"[一键发{name}]({intent(parts[name])})", ""]
     md += ["## 配图", ""] + ([f"- ![{p}]({p})" for p in images] or ["- 还没出图，先跑 make_table_image.py"]) + [""]
     md += ["## 规则检查", ""] + ([f"- [ ] {i}" for i in issues] or ["- 全部通过"]) + [""]
+    todo = todo_items(parts)
+    md += ["## 需补充", ""] + ([f"- [ ] {t}" for t in todo] or ["- 没有，数字都齐了"]) + [""]
     path = out_dir / "发布包.md"
     path.write_text("\n".join(md), encoding="utf-8")
 
     print(f"{column} 发布包：{path}")
     for i in issues:
         print("  ⚠", i)
+    for t in todo:
+        print("  需补充：", t)
 
 
 if __name__ == "__main__":

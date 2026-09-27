@@ -175,7 +175,8 @@ def cmd_settle(a):
             out, px, src, brier(float(r["概率"]), out), DONE]
         n += 1
         print(f"#{r['id']} {r['问题']} → 收盘 {px:,.2f}，结果 {out}，Brier {df.loc[i, 'Brier']}")
-    save(df)
+    if n:  # 没结算就不重写，免得每天 predictions.xlsx 都显示有改动
+        save(df)
     print(f"自动结算 {n} 条")
 
 

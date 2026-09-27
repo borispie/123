@@ -13,6 +13,6 @@
   - `{pred_week_brier}` `{pred_all_brier}` `{pred_count}` `{pred_settled_list}` `{pred_new_list}`
   - `{HYPE_fees_30d}` `{HYPE_revenue_30d}` `{HYPE_holders_revenue_30d}`（也有 24h、7d；协议在 `common.py` 的 `DEFILLAMA_PROTOCOLS` 里加）
   - `{stable_mcap}` `{stable_7d}` `{defi_tvl}` `{defi_tvl_7d}` `{defi_date}`
-  - `{us2y}` `{us5y}` `{us10y}` `{fed_upper}`，一周变化 `{us5y_chg_1w}` 这样，日期 `{macro_date}`
+  - `{us2y}` `{us5y}` `{us10y}` `{fed_upper}`，一周变化 `{us5y_chg_1w}` 这样，收益率的日期 `{macro_date}`，每项自己的日期 `{us10y_date}` `{fed_upper_date}`
   - `{pm_list}`：Polymarket 市场概率，一行一个；`{pm_block}` 是带小标题的版本，没设市场时是空的
   - `{sources}`（放在回复里）
