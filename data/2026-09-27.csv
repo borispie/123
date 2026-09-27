@@ -29,6 +29,23 @@ price,HYPE,chg_7d,1.8049,%,2026-09-27,CoinGecko,https://www.coingecko.com/en/coi
 price,HYPE,chg_30d,11.6648,%,2026-09-27,CoinGecko,https://www.coingecko.com/en/coins/hyperliquid,,2026-09-27T07:02:14Z
 price,HYPE,market_cap,20620703244,USD,2026-09-27,CoinGecko,https://www.coingecko.com/en/coins/hyperliquid,,2026-09-27T07:02:14Z
 price,HYPE,fdv,88556904204,USD,2026-09-27,CoinGecko,https://www.coingecko.com/en/coins/hyperliquid,,2026-09-27T07:02:14Z
-etf,BTC,etf_net_flow,,USD m,,Farside,https://farside.co.uk/bitcoin-etf-flow-all-data/,【需补充：BTC ETF 净流入】,2026-09-27T07:02:23Z
-etf,ETH,etf_net_flow,,USD m,,Farside,https://farside.co.uk/ethereum-etf-flow-all-data/,【需补充：ETH ETF 净流入】,2026-09-27T07:02:32Z
-unlock,,none,,,,Tokenomist,https://tokenomist.ai/,【需补充：2026-09-28 到 2026-10-04 的解锁，填到 data/unlocks.csv】,2026-09-27T07:02:32Z
+etf,BTC,etf_net_flow,134.5,USD m,2026-09-25,Farside（手填）,https://farside.co.uk/btc/,,2026-09-27T07:09:48Z
+etf,ETH,etf_net_flow,87.0,USD m,2026-09-25,Farside（手填）,https://farside.co.uk/eth/,,2026-09-27T07:09:48Z
+unlock,OP,amount,31340000,token,2026-09-30,crypto-corner.com,https://crypto-corner.com/2026/09/22/upcoming-token-unlocks-sep-oct-2026/,,2026-09-27T07:09:58Z
+unlock,OP,pct_circulating,1.36,%,2026-09-30,crypto-corner.com,https://crypto-corner.com/2026/09/22/upcoming-token-unlocks-sep-oct-2026/,,2026-09-27T07:09:58Z
+unlock,OP,value_usd,4000000,USD,2026-09-30,crypto-corner.com,https://crypto-corner.com/2026/09/22/upcoming-token-unlocks-sep-oct-2026/,,2026-09-27T07:09:58Z
+unlock,TIA,amount,17340000,token,2026-09-30,crypto-corner.com,https://crypto-corner.com/2026/09/22/upcoming-token-unlocks-sep-oct-2026/,,2026-09-27T07:09:58Z
+unlock,TIA,pct_circulating,1.79,%,2026-09-30,crypto-corner.com,https://crypto-corner.com/2026/09/22/upcoming-token-unlocks-sep-oct-2026/,,2026-09-27T07:09:58Z
+unlock,TIA,value_usd,7400000,USD,2026-09-30,crypto-corner.com,https://crypto-corner.com/2026/09/22/upcoming-token-unlocks-sep-oct-2026/,,2026-09-27T07:09:58Z
+unlock,SUI,amount,64200000,token,2026-10-01,crypto-corner.com,https://crypto-corner.com/2026/09/22/upcoming-token-unlocks-sep-oct-2026/,,2026-09-27T07:09:58Z
+unlock,SUI,pct_circulating,1.57,%,2026-10-01,crypto-corner.com,https://crypto-corner.com/2026/09/22/upcoming-token-unlocks-sep-oct-2026/,,2026-09-27T07:09:58Z
+unlock,SUI,value_usd,61200000,USD,2026-10-01,crypto-corner.com,https://crypto-corner.com/2026/09/22/upcoming-token-unlocks-sep-oct-2026/,,2026-09-27T07:09:58Z
+unlock,WLD,amount,37500000,token,2026-10-01,crypto-corner.com,https://crypto-corner.com/2026/09/22/upcoming-token-unlocks-sep-oct-2026/,,2026-09-27T07:09:58Z
+unlock,WLD,pct_circulating,1.03,%,2026-10-01,crypto-corner.com,https://crypto-corner.com/2026/09/22/upcoming-token-unlocks-sep-oct-2026/,,2026-09-27T07:09:58Z
+unlock,WLD,value_usd,16600000,USD,2026-10-01,crypto-corner.com,https://crypto-corner.com/2026/09/22/upcoming-token-unlocks-sep-oct-2026/,,2026-09-27T07:09:58Z
+unlock,ENA,amount,12900000,token,2026-10-02,crypto-corner.com,https://crypto-corner.com/2026/09/22/upcoming-token-unlocks-sep-oct-2026/,,2026-09-27T07:09:58Z
+unlock,ENA,pct_circulating,0.13,%,2026-10-02,crypto-corner.com,https://crypto-corner.com/2026/09/22/upcoming-token-unlocks-sep-oct-2026/,,2026-09-27T07:09:58Z
+unlock,ENA,value_usd,2700000,USD,2026-10-02,crypto-corner.com,https://crypto-corner.com/2026/09/22/upcoming-token-unlocks-sep-oct-2026/,,2026-09-27T07:09:58Z
+unlock,W,amount,47200000,token,2026-10-03,crypto-corner.com,https://crypto-corner.com/2026/09/22/upcoming-token-unlocks-sep-oct-2026/,,2026-09-27T07:09:58Z
+unlock,W,pct_circulating,0.72,%,2026-10-03,crypto-corner.com,https://crypto-corner.com/2026/09/22/upcoming-token-unlocks-sep-oct-2026/,,2026-09-27T07:09:58Z
+unlock,W,value_usd,556700,USD,2026-10-03,crypto-corner.com,https://crypto-corner.com/2026/09/22/upcoming-token-unlocks-sep-oct-2026/,,2026-09-27T07:09:58Z

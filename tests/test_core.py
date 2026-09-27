@@ -1,7 +1,8 @@
 """不联网的单元测试。里面的数字都是测试用的，不是真实数据。"""
 from common import fmt_pct, fmt_signed
+import fetch_daily
 from fetch_daily import _num, parse_farside
-from make_post_pack import auto_tag, check, fill, x_len
+from make_post_pack import auto_tag, check, fill, pick_variant, x_len
 from predictions import brier, judge
 
 FARSIDE_HTML = """
@@ -74,3 +75,21 @@ def test_judge_between_and_up():
     assert judge(up, prices)[0] == 0  # 82000 < 83000
     above = {"结算日期": "2026-10-04", "币种": "BTC", "类型": "above", "阈值": 83999}
     assert judge(above, prices)[0] == 1
+
+
+def test_manual_etf_takes_latest_on_or_before(tmp_path, monkeypatch):
+    from datetime import date
+    p = tmp_path / "etf_manual.csv"
+    p.write_text("date,symbol,net_flow_usd_m,source_url\n"
+                 "2026-09-24,BTC,10,\n2026-09-25,BTC,(bad),\n2026-09-25,ETH,5,u\n2026-09-30,BTC,99,\n",
+                 encoding="utf-8")
+    monkeypatch.setattr(fetch_daily, "ETF_MANUAL", p)
+    assert fetch_daily.manual_etf("BTC", date(2026, 9, 27))[:2] == ("2026-09-24", 10.0)
+    assert fetch_daily.manual_etf("ETH", date(2026, 9, 27)) == ("2026-09-25", 5.0, "u")
+    assert fetch_daily.manual_etf("ETH", date(2026, 9, 20)) is None
+
+
+def test_first_issue_variant():
+    parts = {"主贴": "累计 A", "主贴·首期": "第 1 期", "回复": "r"}
+    assert pick_variant(parts, {}) == {"主贴": "第 1 期", "回复": "r"}
+    assert pick_variant(parts, {"pred_count": "3"}) == {"主贴": "累计 A", "回复": "r"}

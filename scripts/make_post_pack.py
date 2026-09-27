@@ -193,6 +193,17 @@ def split_sections(text: str) -> dict[str, str]:
     return {k: "\n".join(v).strip() for k, v in parts.items()}
 
 
+def pick_variant(parts: dict[str, str], v: dict) -> dict[str, str]:
+    """模板里「主贴·首期」这类段落：还没有任何已结算预测时替换同名段落，否则丢掉。"""
+    first = "pred_count" not in v
+    out = {k: t for k, t in parts.items() if not k.endswith("·首期")}
+    if first:
+        for k, t in parts.items():
+            if k.endswith("·首期"):
+                out[k.removesuffix("·首期")] = t
+    return out
+
+
 def template_for(column: str):
     matches = list(TEMPLATES.glob(f"*_{column}.md"))
     if not matches:
@@ -212,8 +223,9 @@ def main():
     day = date.fromisoformat(a.date)
     column = a.column or COLUMNS[day.weekday()]
 
-    parts = split_sections(fill(template_for(column).read_text(encoding="utf-8"), build_vars(day)))
-    parts = {k: auto_tag(v) for k, v in parts.items()}
+    v = build_vars(day)
+    parts = pick_variant(split_sections(fill(template_for(column).read_text(encoding="utf-8"), v)), v)
+    parts = {k: auto_tag(t) for k, t in parts.items()}
     issues = check(parts)
     out_dir = OUTPUT / day.isoformat()
     out_dir.mkdir(parents=True, exist_ok=True)

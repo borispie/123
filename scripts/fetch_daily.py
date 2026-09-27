@@ -9,6 +9,8 @@
   3. 未来 7 天解锁                                           <- data/unlocks.csv（从 Tokenomist 抄）
 
 拉不到的数据不会编，value 留空，note 写【需补充：xxx】。
+Farside 从云服务器访问会被 Cloudflare 挡（403）。拉不到时会去读 data/etf_manual.csv（手填的备用表），
+每行：date,symbol,net_flow_usd_m,source_url，取不晚于当天的最近一个交易日。
 CSV 是长表：每行一个数字，带来源链接，方便写帖子时说出出处。
 """
 from __future__ import annotations
@@ -20,6 +22,7 @@ import re
 import os
 import sys
 from datetime import date, timedelta
+from urllib.parse import urlparse
 
 import pandas as pd
 
@@ -132,7 +135,30 @@ def _fetch_html(url: str) -> str:
             return h
 
 
-def fetch_etf() -> list[dict]:
+ETF_MANUAL = DATA / "etf_manual.csv"
+ETF_MANUAL_COLS = ["date", "symbol", "net_flow_usd_m", "source_url"]
+
+
+def manual_etf(sym: str, day: date) -> tuple[str, float, str] | None:
+    """从 data/etf_manual.csv 找 sym 在 day 当天或之前最近的一条：(日期, 净流入, 来源链接)。"""
+    if not ETF_MANUAL.exists():
+        ETF_MANUAL.write_text(",".join(ETF_MANUAL_COLS) + "\n", encoding="utf-8")
+        return None
+    df = pd.read_csv(ETF_MANUAL, dtype=str).fillna("")
+    best = None
+    for _, r in df.iterrows():
+        try:
+            d = date.fromisoformat(r["date"].strip())
+            v = float(r["net_flow_usd_m"])
+        except ValueError:
+            continue
+        if r["symbol"].strip().upper() == sym and d <= day and (best is None or d > best[0]):
+            best = (d, v, r["source_url"].strip() or FARSIDE[sym])
+    return None if best is None else (best[0].isoformat(), best[1], best[2])
+
+
+def fetch_etf(day: date | None = None) -> list[dict]:
+    day = day or date.today()
     out = []
     for sym, url in FARSIDE.items():
         try:
@@ -143,8 +169,14 @@ def fetch_etf() -> list[dict]:
             out.append(row("etf", sym, "etf_net_flow", total, "USD m", "Farside", url, ref_date=d))
         except Exception as e:
             print(f"[ETF] {sym} 拉取失败：{e}", file=sys.stderr)
-            out.append(row("etf", sym, "etf_net_flow", None, "USD m", "Farside", url,
-                           note=missing(f"{sym} ETF 净流入")))
+            m = manual_etf(sym, day)
+            if m:
+                d, total, src = m
+                print(f"[ETF] {sym} 改用手填表 data/etf_manual.csv：{d} {total}", file=sys.stderr)
+                out.append(row("etf", sym, "etf_net_flow", total, "USD m", "Farside（手填）", src, ref_date=d))
+            else:
+                out.append(row("etf", sym, "etf_net_flow", None, "USD m", "Farside", url,
+                               note=missing(f"{sym} ETF 净流入，可以填到 data/etf_manual.csv")))
     return out
 
 
@@ -169,10 +201,11 @@ def fetch_unlocks(day: date) -> list[dict]:
             continue
         if day < d <= end:
             src = r["source_url"] or TOKENOMIST_URL
+            src_name = "Tokenomist" if "tokenomist" in src else urlparse(src).netloc.removeprefix("www.")
             for metric, unit in (("amount", "token"), ("pct_circulating", "%"), ("value_usd", "USD")):
                 v = r[metric].strip()
                 out.append(row("unlock", r["symbol"].strip().upper(), metric, v or None, unit,
-                               "Tokenomist", src, ref_date=d.isoformat(),
+                               src_name, src, ref_date=d.isoformat(),
                                note="" if v else missing(f"{r['symbol']} 解锁 {metric}")))
     if not out:
         out.append(row("unlock", "", "none", None, "", "Tokenomist", TOKENOMIST_URL,
@@ -186,7 +219,7 @@ def main():
     args = ap.parse_args()
     day = date.fromisoformat(args.date)
 
-    rows = fetch_prices() + fetch_etf() + fetch_unlocks(day)
+    rows = fetch_prices() + fetch_etf(day) + fetch_unlocks(day)
     DATA.mkdir(exist_ok=True)
     path = DATA / f"{day.isoformat()}.csv"
     with open(path, "w", newline="", encoding="utf-8-sig") as f:  # utf-8-sig：Excel 打开不乱码

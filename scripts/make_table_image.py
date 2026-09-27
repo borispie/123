@@ -67,7 +67,8 @@ def unlock_image(d: Daily, out_dir):
         ])
     return render_table(out_dir / "unlock.png", "未来 7 天代币解锁",
                         ["日期", "代币", "解锁数量", "占流通", "价值"], rows,
-                        source="Tokenomist", col_widths=[220, 160, 260, 200, 260])
+                        source=" / ".join(dict.fromkeys(u["source"])) or "Tokenomist",
+                        col_widths=[220, 160, 260, 200, 260])
 
 
 MAKERS = {"price": price_image, "etf": etf_image, "unlock": unlock_image}
