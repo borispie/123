@@ -1,0 +1,34 @@
+﻿section,symbol,metric,value,unit,ref_date,source,source_url,note,fetched_at
+price,BTC,price,84490,USD,2026-09-27,CoinGecko,https://www.coingecko.com/en/coins/bitcoin,,2026-09-27T07:02:14Z
+price,BTC,chg_24h,0.7072,%,2026-09-27,CoinGecko,https://www.coingecko.com/en/coins/bitcoin,,2026-09-27T07:02:14Z
+price,BTC,chg_7d,5.0065,%,2026-09-27,CoinGecko,https://www.coingecko.com/en/coins/bitcoin,,2026-09-27T07:02:14Z
+price,BTC,chg_30d,6.0184,%,2026-09-27,CoinGecko,https://www.coingecko.com/en/coins/bitcoin,,2026-09-27T07:02:14Z
+price,BTC,market_cap,1697394268199,USD,2026-09-27,CoinGecko,https://www.coingecko.com/en/coins/bitcoin,,2026-09-27T07:02:14Z
+price,BTC,fdv,1697395620037,USD,2026-09-27,CoinGecko,https://www.coingecko.com/en/coins/bitcoin,,2026-09-27T07:02:14Z
+price,ETH,price,2706.43,USD,2026-09-27,CoinGecko,https://www.coingecko.com/en/coins/ethereum,,2026-09-27T07:02:14Z
+price,ETH,chg_24h,0.77035,%,2026-09-27,CoinGecko,https://www.coingecko.com/en/coins/ethereum,,2026-09-27T07:02:14Z
+price,ETH,chg_7d,5.0134,%,2026-09-27,CoinGecko,https://www.coingecko.com/en/coins/ethereum,,2026-09-27T07:02:14Z
+price,ETH,chg_30d,8.5151,%,2026-09-27,CoinGecko,https://www.coingecko.com/en/coins/ethereum,,2026-09-27T07:02:14Z
+price,ETH,market_cap,330414081979,USD,2026-09-27,CoinGecko,https://www.coingecko.com/en/coins/ethereum,,2026-09-27T07:02:14Z
+price,ETH,fdv,330414081979,USD,2026-09-27,CoinGecko,https://www.coingecko.com/en/coins/ethereum,,2026-09-27T07:02:14Z
+price,SOL,price,121.33,USD,2026-09-27,CoinGecko,https://www.coingecko.com/en/coins/solana,,2026-09-27T07:02:14Z
+price,SOL,chg_24h,0.91037,%,2026-09-27,CoinGecko,https://www.coingecko.com/en/coins/solana,,2026-09-27T07:02:14Z
+price,SOL,chg_7d,11.5623,%,2026-09-27,CoinGecko,https://www.coingecko.com/en/coins/solana,,2026-09-27T07:02:14Z
+price,SOL,chg_30d,13.1467,%,2026-09-27,CoinGecko,https://www.coingecko.com/en/coins/solana,,2026-09-27T07:02:14Z
+price,SOL,market_cap,71305930275,USD,2026-09-27,CoinGecko,https://www.coingecko.com/en/coins/solana,,2026-09-27T07:02:14Z
+price,SOL,fdv,77014565041,USD,2026-09-27,CoinGecko,https://www.coingecko.com/en/coins/solana,,2026-09-27T07:02:14Z
+price,BNB,price,774.48,USD,2026-09-27,CoinGecko,https://www.coingecko.com/en/coins/binance-coin,,2026-09-27T07:02:14Z
+price,BNB,chg_24h,0.28051,%,2026-09-27,CoinGecko,https://www.coingecko.com/en/coins/binance-coin,,2026-09-27T07:02:14Z
+price,BNB,chg_7d,3.1078,%,2026-09-27,CoinGecko,https://www.coingecko.com/en/coins/binance-coin,,2026-09-27T07:02:14Z
+price,BNB,chg_30d,8.7529,%,2026-09-27,CoinGecko,https://www.coingecko.com/en/coins/binance-coin,,2026-09-27T07:02:14Z
+price,BNB,market_cap,103129486992,USD,2026-09-27,CoinGecko,https://www.coingecko.com/en/coins/binance-coin,,2026-09-27T07:02:14Z
+price,BNB,fdv,103129487789,USD,2026-09-27,CoinGecko,https://www.coingecko.com/en/coins/binance-coin,,2026-09-27T07:02:14Z
+price,HYPE,price,92.7,USD,2026-09-27,CoinGecko,https://www.coingecko.com/en/coins/hyperliquid,,2026-09-27T07:02:14Z
+price,HYPE,chg_24h,1.00483,%,2026-09-27,CoinGecko,https://www.coingecko.com/en/coins/hyperliquid,,2026-09-27T07:02:14Z
+price,HYPE,chg_7d,1.8049,%,2026-09-27,CoinGecko,https://www.coingecko.com/en/coins/hyperliquid,,2026-09-27T07:02:14Z
+price,HYPE,chg_30d,11.6648,%,2026-09-27,CoinGecko,https://www.coingecko.com/en/coins/hyperliquid,,2026-09-27T07:02:14Z
+price,HYPE,market_cap,20620703244,USD,2026-09-27,CoinGecko,https://www.coingecko.com/en/coins/hyperliquid,,2026-09-27T07:02:14Z
+price,HYPE,fdv,88556904204,USD,2026-09-27,CoinGecko,https://www.coingecko.com/en/coins/hyperliquid,,2026-09-27T07:02:14Z
+etf,BTC,etf_net_flow,,USD m,,Farside,https://farside.co.uk/bitcoin-etf-flow-all-data/,【需补充：BTC ETF 净流入】,2026-09-27T07:02:23Z
+etf,ETH,etf_net_flow,,USD m,,Farside,https://farside.co.uk/ethereum-etf-flow-all-data/,【需补充：ETH ETF 净流入】,2026-09-27T07:02:32Z
+unlock,,none,,,,Tokenomist,https://tokenomist.ai/,【需补充：2026-09-28 到 2026-10-04 的解锁，填到 data/unlocks.csv】,2026-09-27T07:02:32Z
