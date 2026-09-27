@@ -191,14 +191,32 @@ def table_html(title: str, headers: list[str], rows: list[list[dict]], source: s
     return "".join(out)
 
 
+# 云端容器预装的浏览器。pip 把 Playwright 升级后版本对不上时，用它兜底。
+PREINSTALLED_CHROMIUM = ("/opt/pw-browsers/chromium",)
+
+
+def launch_chromium(p):
+    """先用 CHROMIUM_PATH；没设就用 Playwright 自带的；自带的启动失败（版本对不上）再试预装的。"""
+    exe = os.environ.get("CHROMIUM_PATH")
+    if exe:
+        return p.chromium.launch(executable_path=exe)
+    try:
+        return p.chromium.launch()
+    except Exception as e:
+        for path in PREINSTALLED_CHROMIUM:
+            if Path(path).exists():
+                print(f"Playwright 自带浏览器启动失败，改用 {path}")
+                return p.chromium.launch(executable_path=path)
+        raise RuntimeError(f"浏览器启动失败：{e}\n在 Mac 上跑一次 playwright install chromium 就好") from e
+
+
 def render_png(page_html: str, out_path: Path) -> Path:
     """HTML -> PNG，宽 1200，2 倍分辨率，高度超过 1500 会报错提醒拆图。"""
     from playwright.sync_api import sync_playwright
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with sync_playwright() as p:
-        exe = os.environ.get("CHROMIUM_PATH")  # 一般不用设，Playwright 自带浏览器
-        browser = p.chromium.launch(executable_path=exe) if exe else p.chromium.launch()
+        browser = launch_chromium(p)
         page = browser.new_page(viewport={"width": 1200, "height": 800}, device_scale_factor=2)
         page.set_content(page_html)
         page.evaluate("document.fonts.ready")

@@ -31,7 +31,7 @@ from urllib.parse import urlparse
 
 import pandas as pd
 
-from common import (COINS, DATA, DEFILLAMA_PROTOCOLS, FRED_SERIES, UA, coingecko_headers, get,
+from common import (COINS, DATA, DEFILLAMA_PROTOCOLS, FRED_SERIES, UA, coingecko_headers, get, launch_chromium,
                     missing, now_utc)
 
 FIELDS = ["section", "symbol", "metric", "value", "unit", "ref_date", "source", "source_url", "note", "fetched_at"]
@@ -131,8 +131,7 @@ def _fetch_html(url: str) -> str:
         # Farside 有时挡脚本，用浏览器再试一次
         from playwright.sync_api import sync_playwright
         with sync_playwright() as p:
-            exe = os.environ.get("CHROMIUM_PATH")
-            b = p.chromium.launch(executable_path=exe) if exe else p.chromium.launch()
+            b = launch_chromium(p)
             pg = b.new_page(user_agent=UA)
             pg.goto(url, wait_until="domcontentloaded", timeout=60000)
             pg.wait_for_selector("table", timeout=30000)
