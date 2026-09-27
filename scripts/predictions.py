@@ -3,6 +3,10 @@
 加预测（周日发帖时）：
     python scripts/predictions.py add --q "BTC 10/4 收盘高于 10 万美元" --p 0.35 \
         --settle 2026-10-04 --kind above --symbol BTC --threshold 100000
+    python scripts/predictions.py add --q "BTC 10/4 收盘在 8 万到 8.8 万之间" --p 0.55 \
+        --settle 2026-10-04 --kind between --symbol BTC --threshold 80000 --high 88000
+    python scripts/predictions.py add --q "BTC 10 月收涨" --p 0.6 \
+        --settle 2026-10-31 --kind up --symbol BTC --ref 2026-09-30       # 10/31 收盘 > 9/30 收盘
     python scripts/predictions.py add --q "美联储 10 月降息" --p 0.6 --settle 2026-10-29   # 人工结算
 
 结算：
@@ -13,7 +17,9 @@
     python scripts/predictions.py review --date 2026-10-04
 
 规则：
-  - 价格类用结算日收盘价 = CoinGecko 在结算日「次日 00:00 UTC」的快照价。
+  - 价格类用结算日的 UTC 日线收盘价：BTC/ETH/SOL/BNB 用 Yahoo Finance（和帖子里写的结算依据一致），
+    拉不到或没有 Yahoo 代码的币（HYPE）用 CoinGecko「次日 00:00 UTC」快照价。
+  - 当天的收盘要等次日 00:00 UTC（美东晚上 8 点）才有，所以 daily.sh 每天都跑一次 settle。
   - Brier = (概率 − 结果)²，结果 1 = 发生，0 = 没发生。越低越好，全猜 50% 是 0.25。
 """
 from __future__ import annotations
@@ -26,8 +32,11 @@ import pandas as pd
 from common import COINS, DATA, OUTPUT, cell, coingecko_headers, get, render_table
 
 FILE = DATA / "predictions.xlsx"
-COLS = ["id", "发布日期", "结算日期", "问题", "类型", "币种", "阈值", "概率", "结果", "结算值",
-        "结算来源", "Brier", "状态"]
+COLS = ["id", "发布日期", "结算日期", "问题", "类型", "币种", "阈值", "阈值上限", "参考日期", "概率",
+        "结果", "结算值", "结算来源", "Brier", "状态"]
+PRICE_KINDS = ("above", "below", "between", "up")
+YAHOO_TICKERS = {"BTC": "BTC-USD", "ETH": "ETH-USD", "SOL": "SOL-USD", "BNB": "BNB-USD"}
+YAHOO_CHART = "https://query1.finance.yahoo.com/v8/finance/chart/{t}"
 PENDING, DONE = "待结算", "已结算"
 BASELINE = 0.25
 
@@ -51,8 +60,8 @@ def save(df: pd.DataFrame):
     with pd.ExcelWriter(FILE, engine="openpyxl") as w:
         df.to_excel(w, index=False, sheet_name="predictions")
         ws = w.sheets["predictions"]
-        widths = {"A": 5, "B": 12, "C": 12, "D": 40, "E": 8, "F": 7, "G": 11, "H": 7, "I": 6,
-                  "J": 12, "K": 40, "L": 8, "M": 8}
+        widths = {"A": 5, "B": 12, "C": 12, "D": 40, "E": 8, "F": 7, "G": 11, "H": 11, "I": 12,
+                  "J": 7, "K": 6, "L": 12, "M": 40, "N": 8, "O": 8}
         for col, wd in widths.items():
             ws.column_dimensions[col].width = wd
         ws.freeze_panes = "A2"
@@ -62,30 +71,75 @@ def cmd_add(a):
     if not 0 <= a.p <= 1:
         raise SystemExit("概率要在 0 到 1 之间，比如 0.35")
     kind = a.kind or "manual"
-    if kind in ("above", "below") and (not a.symbol or a.threshold is None):
+    if kind in ("above", "below", "between") and (not a.symbol or a.threshold is None):
         raise SystemExit("价格类预测要给 --symbol 和 --threshold")
+    if kind == "between" and (a.high is None or a.high <= a.threshold):
+        raise SystemExit("区间预测要给 --high，且要大于 --threshold（下限）")
+    if kind == "up" and (not a.symbol or not a.ref):
+        raise SystemExit("涨跌预测要给 --symbol 和 --ref（拿哪天的收盘比，比如 2026-09-30）")
     if a.symbol and a.symbol.upper() not in COINS:
         raise SystemExit(f"币种只支持 {list(COINS)}，别的用人工结算")
     df = load()
     new_id = 1 if df.empty else int(df["id"].max()) + 1
     df.loc[len(df)] = {
         "id": new_id, "发布日期": a.date, "结算日期": a.settle, "问题": a.q, "类型": kind,
-        "币种": (a.symbol or "").upper() or None, "阈值": a.threshold, "概率": a.p,
+        "币种": (a.symbol or "").upper() or None, "阈值": a.threshold, "阈值上限": a.high,
+        "参考日期": a.ref, "概率": a.p,
         "结果": None, "结算值": None, "结算来源": None, "Brier": None, "状态": PENDING,
     }
     save(df)
     print(f"已加 #{new_id}：{a.q}（{a.p:.0%}，{a.settle} 结算）")
 
 
-def close_price(symbol: str, day: date) -> tuple[float, str]:
-    """结算日收盘价 = 次日 00:00 UTC 快照。"""
-    cid = COINS[symbol]
+def yahoo_close(ticker: str, day: date) -> float:
+    """Yahoo 日线（UTC）里 day 那一根的收盘价。"""
+    p1 = int(datetime(day.year, day.month, day.day, tzinfo=timezone.utc).timestamp())
+    r = get(YAHOO_CHART.format(t=ticker),
+            params={"period1": p1 - 86400, "period2": p1 + 2 * 86400, "interval": "1d"}).json()
+    res = r["chart"]["result"][0]
+    for ts, c in zip(res["timestamp"], res["indicators"]["quote"][0]["close"]):
+        if datetime.fromtimestamp(ts, timezone.utc).date() == day and c is not None:
+            return float(c)
+    raise ValueError(f"Yahoo 没有 {ticker} {day} 的日线")
+
+
+def coingecko_close(symbol: str, day: date) -> float:
+    """CoinGecko 在 day 次日 00:00 UTC 的快照价，约等于 day 的收盘。"""
     snap = day + timedelta(days=1)
-    url = f"https://api.coingecko.com/api/v3/coins/{cid}/history"
-    r = get(url, params={"date": snap.strftime("%d-%m-%Y"), "localization": "false"},
+    r = get(f"https://api.coingecko.com/api/v3/coins/{COINS[symbol]}/history",
+            params={"date": snap.strftime("%d-%m-%Y"), "localization": "false"},
             headers=coingecko_headers()).json()
-    price = r["market_data"]["current_price"]["usd"]
-    return float(price), f"{url}?date={snap.strftime('%d-%m-%Y')}"
+    return float(r["market_data"]["current_price"]["usd"])
+
+
+def close_price(symbol: str, day: date) -> tuple[float, str]:
+    """结算日 UTC 收盘价 + 来源链接。先 Yahoo，拉不到再用 CoinGecko。"""
+    t = YAHOO_TICKERS.get(symbol)
+    if t:
+        try:
+            return yahoo_close(t, day), f"https://finance.yahoo.com/quote/{t}/history/（{day} 收盘）"
+        except Exception as e:
+            print(f"  Yahoo 拉 {symbol} {day} 失败，改用 CoinGecko：{e}")
+    snap = (day + timedelta(days=1)).strftime("%d-%m-%Y")
+    return coingecko_close(symbol, day), f"https://api.coingecko.com/api/v3/coins/{COINS[symbol]}/history?date={snap}"
+
+
+def judge(r, price_on) -> tuple[int, float, str]:
+    """算一条价格类预测的结果。price_on(symbol, day) -> (价格, 来源)。返回 (结果, 结算值, 来源)。"""
+    day = pd.to_datetime(r["结算日期"]).date()
+    px, src = price_on(r["币种"], day)
+    kind = r["类型"]
+    if kind == "above":
+        return int(px > float(r["阈值"])), px, src
+    if kind == "below":
+        return int(px < float(r["阈值"])), px, src
+    if kind == "between":
+        return int(float(r["阈值"]) <= px <= float(r["阈值上限"])), px, src
+    if kind == "up":
+        ref = pd.to_datetime(r["参考日期"]).date()
+        ref_px, ref_src = price_on(r["币种"], ref)
+        return int(px > ref_px), px, f"{src}；对比 {ref} 收盘 {ref_px:,.2f}：{ref_src}"
+    raise ValueError(f"不认识的类型 {kind}")
 
 
 def cmd_settle(a):
@@ -109,16 +163,14 @@ def cmd_settle(a):
         settle_day = pd.to_datetime(r["结算日期"]).date()
         if today_utc <= settle_day:  # 收盘价要等次日 00:00 UTC 才有
             continue
-        if r["类型"] not in ("above", "below"):
+        if r["类型"] not in PRICE_KINDS:
             print(f"#{r['id']} 到期了，需要人工结算：{r['问题']}")
             continue
         try:
-            px, src = close_price(r["币种"], settle_day)
+            out, px, src = judge(r, close_price)
         except Exception as e:
             print(f"#{r['id']} 拉价格失败，下次再试：{e}")
             continue
-        hit = px > r["阈值"] if r["类型"] == "above" else px < r["阈值"]
-        out = int(hit)
         df.loc[i, ["结果", "结算值", "结算来源", "Brier", "状态"]] = [
             out, px, src, brier(float(r["概率"]), out), DONE]
         n += 1
@@ -152,7 +204,7 @@ def cmd_review(a):
            f"｜全猜 50% = {BASELINE}，越低越准")
     p = render_table(OUTPUT / a.date / "预测复盘.png", "本周预测复盘",
                      ["编号", "预测", "概率", "结果", "Brier"], rows,
-                     source="CoinGecko / 各题结算来源见 data/predictions.xlsx", subtitle=sub,
+                     source="Yahoo Finance / CoinGecko / Farside，各题结算来源见 data/predictions.xlsx", subtitle=sub,
                      col_widths=[100, 560, 130, 150, 150])
     print(f"复盘图：{p}")
     print(sub)
@@ -165,9 +217,11 @@ def main():
     s.add_argument("--q", required=True, help="预测内容")
     s.add_argument("--p", type=float, required=True, help="概率 0~1")
     s.add_argument("--settle", required=True, help="结算日期 YYYY-MM-DD")
-    s.add_argument("--kind", choices=["above", "below", "manual"])
+    s.add_argument("--kind", choices=["above", "below", "between", "up", "manual"])
     s.add_argument("--symbol")
-    s.add_argument("--threshold", type=float)
+    s.add_argument("--threshold", type=float, help="above/below 的阈值，between 的下限")
+    s.add_argument("--high", type=float, help="between 的上限")
+    s.add_argument("--ref", help="up：拿哪天的收盘比，YYYY-MM-DD")
     s.add_argument("--date", default=date.today().isoformat(), help="发布日期")
     s = sub.add_parser("settle")
     s.add_argument("--id", type=int)

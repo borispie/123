@@ -32,6 +32,8 @@ FARSIDE = {
     "ETH": "https://farside.co.uk/ethereum-etf-flow-all-data/",
 }
 TOKENOMIST_URL = "https://tokenomist.ai/"
+# CoinGecko 网页地址和 API id 不完全一样（BNB 的 API id 是 binancecoin，网页是 binance-coin）
+CG_WEB_SLUG = {"binancecoin": "binance-coin"}
 
 
 def row(section, symbol, metric, value, unit, source, source_url, ref_date="", note=""):
@@ -66,7 +68,7 @@ def fetch_prices() -> list[dict]:
     out = []
     for sym, cid in COINS.items():
         d = by_id.get(cid, {})
-        page = f"https://www.coingecko.com/en/coins/{cid}"
+        page = f"https://www.coingecko.com/en/coins/{CG_WEB_SLUG.get(cid, cid)}"
         for metric, key, unit in PRICE_METRICS:
             v = d.get(key)
             out.append(row("price", sym, metric, v, unit, "CoinGecko", page,

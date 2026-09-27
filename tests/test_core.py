@@ -2,7 +2,7 @@
 from common import fmt_pct, fmt_signed
 from fetch_daily import _num, parse_farside
 from make_post_pack import auto_tag, check, fill, x_len
-from predictions import brier
+from predictions import brier, judge
 
 FARSIDE_HTML = """
 <table><tr><th></th><th>IBIT</th><th>Total</th></tr>
@@ -58,3 +58,19 @@ def test_rules():
     issues = "\n".join(check(bad))
     for word in ("必涨", "3 个话题标签", "不构成投资建议", "链接", "hook"):
         assert word in issues
+
+
+def _fake_prices(table):
+    return lambda sym, day: (table[day.isoformat()], "测试")
+
+
+def test_judge_between_and_up():
+    prices = _fake_prices({"2026-10-04": 84000.0, "2026-09-30": 83000.0, "2026-10-31": 82000.0})
+    between = {"结算日期": "2026-10-04", "币种": "BTC", "类型": "between", "阈值": 80000, "阈值上限": 88000}
+    assert judge(between, prices)[0] == 1
+    between["阈值上限"] = 83500
+    assert judge(between, prices)[0] == 0
+    up = {"结算日期": "2026-10-31", "币种": "BTC", "类型": "up", "参考日期": "2026-09-30"}
+    assert judge(up, prices)[0] == 0  # 82000 < 83000
+    above = {"结算日期": "2026-10-04", "币种": "BTC", "类型": "above", "阈值": 83999}
+    assert judge(above, prices)[0] == 1

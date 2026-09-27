@@ -9,9 +9,11 @@ DAY="${1:-$(date +%F)}"
 python3 scripts/fetch_daily.py --date "$DAY"
 python3 scripts/make_table_image.py --date "$DAY"
 
-# 周日（date +%u = 7）
+# 每天都结算一次：收盘价要等次日 00:00 UTC（美东晚 8 点）才有，到期的预测第二天自动结掉
+python3 scripts/predictions.py settle || true
+
+# 周日（isoweekday = 7）出复盘图
 if [ "$(python3 -c "import datetime;print(datetime.date.fromisoformat('$DAY').isoweekday())")" = "7" ]; then
-  python3 scripts/predictions.py settle
   python3 scripts/predictions.py review --date "$DAY" || true
 fi
 
