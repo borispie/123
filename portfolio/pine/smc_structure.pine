@@ -1,0 +1,96 @@
+//@version=6
+// SMC 结构指标：BOS / CHoCH、订单块（Order Block）、公允价值缺口（FVG）
+// 作者：Siyi ｜ 用法：TradingView → Pine 编辑器 → 粘贴 → 添加到图表
+indicator("SMC 结构：BOS / CHoCH / 订单块 / FVG", overlay = true,
+     max_boxes_count = 300, max_lines_count = 300, max_labels_count = 300)
+
+// ---------- 参数 ----------
+swingLen   = input.int(5, "摆动点左右 K 线数", minval = 2, group = "结构")
+showStruct = input.bool(true, "显示 BOS / CHoCH", group = "结构")
+showOB     = input.bool(true, "显示订单块", group = "订单块")
+obLookback = input.int(30, "订单块最多往回找几根", minval = 5, maxval = 200, group = "订单块")
+showFVG    = input.bool(true, "显示 FVG", group = "FVG")
+fvgMinPct  = input.float(0.1, "FVG 最小幅度 %", minval = 0, step = 0.05, group = "FVG")
+extendBars = input.int(40, "区域向右延伸 K 线数", minval = 5, group = "样式")
+bullCol    = input.color(color.new(#006100, 80), "多头颜色", group = "样式")
+bearCol    = input.color(color.new(#9C0006, 80), "空头颜色", group = "样式")
+
+// ---------- FVG ----------
+// 多头 FVG：当前 K 线最低价 > 两根前最高价，中间留下缺口
+bullFVG = low > high[2] and (low - high[2]) / close * 100 >= fvgMinPct
+bearFVG = high < low[2] and (low[2] - high) / close * 100 >= fvgMinPct
+
+if showFVG and bullFVG
+    box.new(bar_index - 2, low, bar_index + extendBars, high[2], border_color = na, bgcolor = bullCol)
+if showFVG and bearFVG
+    box.new(bar_index - 2, low[2], bar_index + extendBars, high, border_color = na, bgcolor = bearCol)
+
+// ---------- 结构 ----------
+ph = ta.pivothigh(high, swingLen, swingLen)
+pl = ta.pivotlow(low, swingLen, swingLen)
+
+var float lastHigh    = na
+var int   lastHighBar = na
+var bool  highBroken  = true
+var float lastLow     = na
+var int   lastLowBar  = na
+var bool  lowBroken   = true
+var int   trend       = 0   // 1 = 多头结构，-1 = 空头结构
+
+if not na(ph)
+    lastHigh    := ph
+    lastHighBar := bar_index - swingLen
+    highBroken  := false
+if not na(pl)
+    lastLow    := pl
+    lastLowBar := bar_index - swingLen
+    lowBroken  := false
+
+bool breakUp   = false
+bool breakDown = false
+bool chochUp   = false
+bool chochDown = false
+
+// 收盘价突破上一个摆动高点
+if not highBroken and not na(lastHigh) and close > lastHigh
+    highBroken := true
+    breakUp    := true
+    chochUp    := trend == -1
+    if showStruct
+        line.new(lastHighBar, lastHigh, bar_index, lastHigh, color = #006100, style = line.style_dashed)
+        label.new(math.round((lastHighBar + bar_index) / 2), lastHigh, chochUp ? "CHoCH" : "BOS",
+             style = label.style_label_down, color = color.new(color.white, 100), textcolor = #006100, size = size.small)
+    // 多头订单块：突破前最后一根阴线
+    if showOB
+        int n = math.min(bar_index - lastHighBar, obLookback)
+        for i = 1 to n
+            if close[i] < open[i]
+                box.new(bar_index - i, high[i], bar_index + extendBars, low[i], border_color = #006100, bgcolor = bullCol)
+                break
+    trend := 1
+
+// 收盘价跌破上一个摆动低点
+if not lowBroken and not na(lastLow) and close < lastLow
+    lowBroken := true
+    breakDown := true
+    chochDown := trend == 1
+    if showStruct
+        line.new(lastLowBar, lastLow, bar_index, lastLow, color = #9C0006, style = line.style_dashed)
+        label.new(math.round((lastLowBar + bar_index) / 2), lastLow, chochDown ? "CHoCH" : "BOS",
+             style = label.style_label_up, color = color.new(color.white, 100), textcolor = #9C0006, size = size.small)
+    // 空头订单块：跌破前最后一根阳线
+    if showOB
+        int n = math.min(bar_index - lastLowBar, obLookback)
+        for i = 1 to n
+            if close[i] > open[i]
+                box.new(bar_index - i, high[i], bar_index + extendBars, low[i], border_color = #9C0006, bgcolor = bearCol)
+                break
+    trend := -1
+
+// ---------- 提醒 ----------
+alertcondition(breakUp and not chochUp, "向上 BOS", "{{ticker}} 向上 BOS，收盘 {{close}}")
+alertcondition(chochUp, "向上 CHoCH", "{{ticker}} 结构转多（CHoCH），收盘 {{close}}")
+alertcondition(breakDown and not chochDown, "向下 BOS", "{{ticker}} 向下 BOS，收盘 {{close}}")
+alertcondition(chochDown, "向下 CHoCH", "{{ticker}} 结构转空（CHoCH），收盘 {{close}}")
+alertcondition(bullFVG, "多头 FVG", "{{ticker}} 出现多头 FVG")
+alertcondition(bearFVG, "空头 FVG", "{{ticker}} 出现空头 FVG")
