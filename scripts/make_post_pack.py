@@ -17,7 +17,8 @@ from urllib.parse import quote
 
 import pandas as pd
 
-from common import COINS, DISCLAIMER, HOLDINGS, OUTPUT, TEMPLATES, Daily, fmt_big, fmt_pct, fmt_price, fmt_signed, missing
+from common import (COINS, DEFILLAMA_PROTOCOLS, DISCLAIMER, FRED_SERIES, HOLDINGS, OUTPUT, TEMPLATES, Daily,
+                    fmt_big, fmt_pct, fmt_price, fmt_signed, missing)
 
 COLUMNS = ["周一数据", "周二代币经济", "周三链上巨鲸", "周四宏观", "周五项目深度", "周六统计小课", "周日预测复盘"]
 BANNED = ["必涨", "必跌", "稳了"]
@@ -75,6 +76,39 @@ def price_vars(d: Daily | None) -> dict:
     return v
 
 
+def data_vars(d: Daily | None) -> dict:
+    """DefiLlama / FRED / Polymarket 的变量。拉不到的不放进来，模板里就会显示【需补充】。"""
+    v = {"pm_block": "", "pm_list": ""}
+    if d is None:
+        return v
+    for sym in DEFILLAMA_PROTOCOLS:
+        for name in ("fees", "revenue", "holders_revenue"):
+            for k in ("24h", "7d", "30d"):
+                x = d.v("defi", sym, f"{name}_{k}")
+                if x is not None:
+                    v[f"{sym}_{name}_{k}"] = fmt_big(x)
+    for name, short in (("stablecoin", "stable"), ("defi_tvl", "defi_tvl")):
+        x, c = d.v("defi", "ALL", name), d.v("defi", "ALL", f"{name}_chg_7d")
+        if x is not None:
+            v[f"{short}_mcap" if short == "stable" else short] = fmt_big(x)
+            v["defi_date"] = d.ref_date("defi", "ALL", name)
+        if c is not None:
+            v[f"{short}_7d"] = fmt_pct(c, MINUS)
+    for name in FRED_SERIES:
+        x, c = d.v("macro", name, "value"), d.v("macro", name, "chg_1w")
+        if x is not None:
+            v[name] = f"{x:.2f}%"
+            v["macro_date"] = d.ref_date("macro", name, "value")
+        if c is not None:
+            v[f"{name}_chg_1w"] = f"{fmt_signed(c, MINUS, 2)} 个百分点"
+    pm = d.rows("polymarket")
+    lines = [f"- {r['symbol']}：市场给 {float(r['value']):.0f}%" for _, r in pm.iterrows() if r["value"] != ""]
+    if lines:
+        v["pm_list"] = "\n".join(lines)
+        v["pm_block"] = "\n市场怎么看（Polymarket）：\n" + v["pm_list"] + "\n"
+    return v
+
+
 def pred_vars(day: date) -> dict:
     try:
         from predictions import DONE, PENDING, load
@@ -110,6 +144,7 @@ def build_vars(day: date) -> dict:
         d = None
     v = {"date": day.isoformat()}
     v.update(price_vars(d))
+    v.update(data_vars(d))
     v.update(pred_vars(day))
     if d is not None:
         v["sources"] = "\n".join(f"{name}: {u}" for u, name in d.sources().items()) or missing("数据来源链接")

@@ -30,7 +30,8 @@
 
 # 常用数据源
 
-CoinGecko（价格）、DefiLlama（TVL、收入、回购）、Farside（ETF 流入）、Tokenomist（解锁）、CoinGlass（资金费率、OI、爆仓）、Yahoo Finance（历史日线）、returnsview.com（BTC 月度收益）、Newsquawk（宏观日历）。
+CoinGecko（价格）、DefiLlama（TVL、收入、回购、稳定币）、Farside（ETF 流入）、Tokenomist（解锁）、Hyperliquid（资金费率、OI）、Yahoo Finance（历史日线）、FRED（美债收益率、利率）、Polymarket（预测市场概率）、returnsview.com（BTC 月度收益）、Newsquawk（宏观日历）。
+用别家数据时照样标明来源（帖子的回复里放链接）。
 
 # 配图风格
 

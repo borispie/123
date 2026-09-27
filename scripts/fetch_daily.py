@@ -7,6 +7,10 @@
   1. BTC/ETH/SOL/BNB/HYPE 价格、24h/7天/30天涨跌、市值、FDV   <- CoinGecko
   2. BTC、ETH 现货 ETF 最近一个交易日的净流入（百万美元）        <- Farside
   3. 未来 7 天解锁                                           <- data/unlocks.csv（从 Tokenomist 抄）
+  4. 协议手续费 / 收入 / 持币人收入（24h、7天、30天）          <- DefiLlama（common.DEFILLAMA_PROTOCOLS）
+  5. 稳定币总市值、DeFi 总 TVL 和 7 天变化                     <- DefiLlama
+  6. 美债 2/5/10 年收益率、联邦基金利率上限和一周变化          <- FRED（要 FRED_API_KEY）
+  7. 预测市场概率                                           <- Polymarket（data/polymarket.csv 里列要跟踪的市场）
 
 拉不到的数据不会编，value 留空，note 写【需补充：xxx】。
 Farside 从云服务器访问会被 Cloudflare 挡（403）。拉不到时会去读 data/etf_manual.csv（手填的备用表），
@@ -18,15 +22,17 @@ from __future__ import annotations
 import argparse
 import csv
 import io
+import json
 import re
 import os
 import sys
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from urllib.parse import urlparse
 
 import pandas as pd
 
-from common import COINS, DATA, UA, coingecko_headers, get, missing, now_utc
+from common import (COINS, DATA, DEFILLAMA_PROTOCOLS, FRED_SERIES, UA, coingecko_headers, get,
+                    missing, now_utc)
 
 FIELDS = ["section", "symbol", "metric", "value", "unit", "ref_date", "source", "source_url", "note", "fetched_at"]
 
@@ -213,13 +219,191 @@ def fetch_unlocks(day: date) -> list[dict]:
     return out
 
 
+# ---------- 4/5. DefiLlama ----------
+
+LLAMA = "https://api.llama.fi"
+LLAMA_STABLE = "https://stablecoins.llama.fi/stablecoincharts/all"
+FEE_TYPES = (("dailyFees", "fees"), ("dailyRevenue", "revenue"), ("dailyHoldersRevenue", "holders_revenue"))
+
+
+def fetch_protocols() -> list[dict]:
+    """每个协议的手续费、收入、持币人收入（Hyperliquid 的持币人收入基本就是回购）。"""
+    out = []
+    for sym, slug in DEFILLAMA_PROTOCOLS.items():
+        page = f"https://defillama.com/protocol/{slug}"
+        for dtype, name in FEE_TYPES:
+            try:
+                d = get(f"{LLAMA}/summary/fees/{slug}",
+                        params={"dataType": dtype, "excludeTotalDataChart": "true",
+                                "excludeTotalDataChartBreakdown": "true"}).json()
+            except Exception as e:
+                print(f"[DefiLlama] {slug} {dtype} 拉取失败：{e}", file=sys.stderr)
+                d = {}
+            for k in ("24h", "7d", "30d"):
+                v = d.get(f"total{k}")
+                out.append(row("defi", sym, f"{name}_{k}", v, "USD", "DefiLlama", page, ref_date=date.today().isoformat(),
+                               note="" if v is not None else missing(f"{sym} {name} {k}")))
+    return out
+
+
+def _usd(x) -> float | None:
+    """DefiLlama 稳定币的金额有时是 {peggedUSD: .., peggedEUR: ..}，加总成美元。"""
+    if isinstance(x, dict):
+        vals = [float(v) for v in x.values() if isinstance(v, (int, float))]
+        return sum(vals) if vals else None
+    return float(x) if isinstance(x, (int, float)) else None
+
+
+def latest_and_week_ago(points: list[tuple[int, float]]) -> tuple[str, float, float | None] | None:
+    """points = [(unix 秒, 数值)]。返回 (最新日期, 最新值, 7 天变化 %)。"""
+    pts = sorted((t, v) for t, v in points if v is not None)
+    if not pts:
+        return None
+    t1, v1 = pts[-1]
+    older = [v for t, v in pts if t <= t1 - 7 * 86400]
+    chg = (v1 / older[-1] - 1) * 100 if older and older[-1] else None
+    return datetime.fromtimestamp(t1, timezone.utc).date().isoformat(), v1, chg
+
+
+def parse_stablecoins(data) -> tuple[str, float, float | None] | None:
+    return latest_and_week_ago([(int(p["date"]), _usd(p.get("totalCirculatingUSD"))) for p in data])
+
+
+def parse_tvl(data) -> tuple[str, float, float | None] | None:
+    return latest_and_week_ago([(int(p["date"]), _usd(p.get("tvl"))) for p in data])
+
+
+def fetch_defi_totals() -> list[dict]:
+    out = []
+    jobs = (("stablecoin", LLAMA_STABLE, "https://defillama.com/stablecoins", parse_stablecoins, "稳定币总市值"),
+            ("defi_tvl", f"{LLAMA}/v2/historicalChainTvl", "https://defillama.com/", parse_tvl, "DeFi 总 TVL"))
+    for name, url, page, parse, label in jobs:
+        try:
+            res = parse(get(url).json())
+            if res is None:
+                raise ValueError("没有数据")
+            d, v, chg = res
+            out.append(row("defi", "ALL", name, v, "USD", "DefiLlama", page, ref_date=d))
+            out.append(row("defi", "ALL", f"{name}_chg_7d", chg, "%", "DefiLlama", page, ref_date=d,
+                           note="" if chg is not None else missing(f"{label} 7 天变化")))
+        except Exception as e:
+            print(f"[DefiLlama] {label} 拉取失败：{e}", file=sys.stderr)
+            out.append(row("defi", "ALL", name, None, "USD", "DefiLlama", page, note=missing(label)))
+    return out
+
+
+# ---------- 6. FRED ----------
+
+FRED = "https://api.stlouisfed.org/fred/series/observations"
+
+
+def parse_fred(obs: list[dict]) -> tuple[str, float, float | None] | None:
+    """FRED 缺值写成 "."。返回 (最新日期, 最新值, 和 7 天前比的变化，单位百分点)。"""
+    pts = []
+    for o in obs:
+        try:
+            pts.append((date.fromisoformat(o["date"]), float(o["value"])))
+        except (ValueError, KeyError):
+            continue
+    if not pts:
+        return None
+    pts.sort()
+    d1, v1 = pts[-1]
+    older = [v for d, v in pts if d <= d1 - timedelta(days=7)]
+    return d1.isoformat(), v1, (round(v1 - older[-1], 4) if older else None)
+
+
+def fetch_macro(day: date) -> list[dict]:
+    key = os.environ.get("FRED_API_KEY")
+    out = []
+    for name, sid in FRED_SERIES.items():
+        page = f"https://fred.stlouisfed.org/series/{sid}"
+        if not key:
+            out.append(row("macro", name, "value", None, "%", "FRED", page,
+                           note=missing(f"{sid}：先设环境变量 FRED_API_KEY（fred.stlouisfed.org 免费申请）")))
+            continue
+        try:
+            obs = get(FRED, params={"series_id": sid, "api_key": key, "file_type": "json",
+                                    "observation_start": (day - timedelta(days=30)).isoformat()}).json()["observations"]
+            res = parse_fred(obs)
+            if res is None:
+                raise ValueError("没有数据")
+            d, v, chg = res
+            out.append(row("macro", name, "value", v, "%", "FRED", page, ref_date=d))
+            out.append(row("macro", name, "chg_1w", chg, "pp", "FRED", page, ref_date=d,
+                           note="" if chg is not None else missing(f"{sid} 一周变化")))
+        except Exception as e:
+            print(f"[FRED] {sid} 拉取失败：{e}", file=sys.stderr)
+            out.append(row("macro", name, "value", None, "%", "FRED", page, note=missing(f"{sid}")))
+    return out
+
+
+# ---------- 7. Polymarket ----------
+
+GAMMA = "https://gamma-api.polymarket.com/markets/slug/{slug}"
+GAMMA_EVENT = "https://gamma-api.polymarket.com/events/slug/{slug}"
+PM_MAX_PER_EVENT = 8
+PM_FILE = DATA / "polymarket.csv"
+PM_COLS = ["slug", "label"]
+
+
+def parse_polymarket(m: dict) -> tuple[float, str]:
+    """返回 (Yes 的概率 0~1, 结束日期)。outcomes / outcomePrices 是 JSON 字符串。"""
+    outcomes = m.get("outcomes")
+    prices = m.get("outcomePrices")
+    outcomes = json.loads(outcomes) if isinstance(outcomes, str) else (outcomes or [])
+    prices = json.loads(prices) if isinstance(prices, str) else (prices or [])
+    if not prices:
+        raise ValueError("没有 outcomePrices")
+    names = [str(o).lower() for o in outcomes]
+    i = names.index("yes") if "yes" in names else 0
+    return float(prices[i]), (m.get("endDate") or "")[:10]
+
+
+def fetch_polymarket() -> list[dict]:
+    """data/polymarket.csv 每行一个：slug（网址 polymarket.com/event/xxx 或 /market/xxx 里的 xxx）, label（帖子里怎么叫它）。
+    先按「单个市场」查，查不到再按「事件」查；一个事件里有好几个市场（比如不同价位），每个都记一行。"""
+    if not PM_FILE.exists():
+        PM_FILE.write_text(",".join(PM_COLS) + "\n", encoding="utf-8")
+    df = pd.read_csv(PM_FILE, dtype=str).fillna("")
+    out = []
+    for _, r in df.iterrows():
+        slug = r["slug"].strip()
+        if not slug:
+            continue
+        label = r["label"].strip() or slug
+        url = GAMMA.format(slug=slug)
+        try:
+            p, end = parse_polymarket(get(url, tries=1).json())
+            out.append(row("polymarket", label, "yes_prob", round(p * 100, 1), "%", "Polymarket", url, ref_date=end))
+            continue
+        except Exception:
+            pass
+        ev_url = GAMMA_EVENT.format(slug=slug)
+        try:
+            ev = get(ev_url).json()
+            markets = [m for m in ev.get("markets", []) if not m.get("closed")][:PM_MAX_PER_EVENT]
+            if not markets:
+                raise ValueError("事件里没有进行中的市场")
+            for m in markets:
+                p, end = parse_polymarket(m)
+                name = m.get("groupItemTitle") or m.get("question") or ""
+                out.append(row("polymarket", f"{label} {name}".strip(), "yes_prob", round(p * 100, 1), "%",
+                               "Polymarket", ev_url, ref_date=end))
+        except Exception as e:
+            print(f"[Polymarket] {slug} 拉取失败：{e}", file=sys.stderr)
+            out.append(row("polymarket", label, "yes_prob", None, "%", "Polymarket", url,
+                           note=missing(f"Polymarket {label} 概率（检查 data/polymarket.csv 里的 slug）")))
+    return out
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--date", default=date.today().isoformat())
     args = ap.parse_args()
     day = date.fromisoformat(args.date)
 
-    rows = fetch_prices() + fetch_etf(day) + fetch_unlocks(day)
+    rows = (fetch_prices() + fetch_etf(day) + fetch_unlocks(day) + fetch_protocols()
+            + fetch_defi_totals() + fetch_macro(day) + fetch_polymarket())
     DATA.mkdir(exist_ok=True)
     path = DATA / f"{day.isoformat()}.csv"
     with open(path, "w", newline="", encoding="utf-8-sig") as f:  # utf-8-sig：Excel 打开不乱码

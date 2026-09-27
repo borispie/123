@@ -15,9 +15,22 @@ playwright install chromium
 
 可选：CoinGecko 免费 demo key，限流少一点：`export COINGECKO_API_KEY=xxx`
 
+美债收益率要 FRED 的免费 key（fred.stlouisfed.org 注册后在 My Account → API Keys 申请）。
+把下面这行加进 `~/.zshrc`，重开终端就生效：
+
+```bash
+export FRED_API_KEY=你的key
+```
+
+在云端跑的话，把 `FRED_API_KEY=你的key` 填进云端环境设置里的 Environment variables。
+
 ### 第一次跑，先确认这几样能拉到真数据
 
-云端环境的网络挡了这些数据源，所以下面这些只在 Mac 上真正跑过才算数：
+云端环境要在 Network access 里用 Custom，把这些域名加进白名单：
+`*.coingecko.com`、`farside.co.uk`、`api.hyperliquid.xyz`、`*.finance.yahoo.com`、`*.llama.fi`、`defillama.com`、
+`api.stlouisfed.org`、`gamma-api.polymarket.com`。Farside 在云端还是会被人机验证挡，用手填表。
+
+第一次在 Mac 上跑，先确认这几样能拉到真数据：
 
 ```bash
 python3 scripts/fetch_daily.py                     # 看最后「需补充」的清单，价格和 ETF 应该都有数
@@ -34,7 +47,8 @@ python3 portfolio/backtest/dca_backtest.py --help  # 看参数，再用 BTC-USD 
 ```
 
 做的事：
-1. `fetch_daily.py` 拉 BTC/ETH/SOL/BNB/HYPE 价格和 24h/7天/30天涨跌、ETF 净流入、未来 7 天解锁 → `data/日期.csv`
+1. `fetch_daily.py` 拉 BTC/ETH/SOL/BNB/HYPE 价格和 24h/7天/30天涨跌、ETF 净流入、未来 7 天解锁、
+   DefiLlama（协议收入、稳定币、TVL）、FRED（美债收益率、利率）、Polymarket（你列的市场）→ `data/日期.csv`
 2. `make_table_image.py` 出 Excel 风格表格图 → `output/日期/*.png`
 3. `make_post_pack.py` 按当天栏目生成主贴、回复、短推、一键发帖链接，并检查发帖规则 → `output/日期/发布包.md`
 4. 每天结算到期的预测（当天收盘要等美东晚上 8 点以后才有，所以一般第二天早上结掉）
@@ -49,6 +63,8 @@ python3 portfolio/backtest/dca_backtest.py --help  # 看参数，再用 BTC-USD 
 | 什么时候 | 做什么 | 命令 / 文件 |
 |---|---|---|
 | 周日前 | 去 tokenomist.ai 把下周解锁抄进表 | `data/unlocks.csv` |
+| 想跟踪新的预测市场时 | 在 polymarket.com 找到市场，把网址 `/event/` 后面那段抄进表，再写个中文名 | `data/polymarket.csv` |
+| 云端拉不到 ETF 时 | 从 farside.co.uk/btc 和 /eth 抄最近一个交易日的 Total | `data/etf_manual.csv` |
 | 周日发帖时 | 记新预测：高于/低于 | `python scripts/predictions.py add --q "..." --p 0.35 --settle 2026-10-04 --kind above --symbol BTC --threshold 100000` |
 | 周日发帖时 | 记新预测：区间 | `python scripts/predictions.py add --q "..." --p 0.55 --settle 2026-10-04 --kind between --symbol BTC --threshold 80000 --high 88000` |
 | 周日发帖时 | 记新预测：某天收盘比另一天高 | `python scripts/predictions.py add --q "..." --p 0.6 --settle 2026-10-31 --kind up --symbol BTC --ref 2026-09-30` |

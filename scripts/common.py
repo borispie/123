@@ -22,6 +22,17 @@ COINS = {
     "BNB": "binancecoin",
     "HYPE": "hyperliquid",
 }
+# 符号 -> DefiLlama 协议 slug（拉手续费、收入、持币人收入）
+DEFILLAMA_PROTOCOLS = {
+    "HYPE": "hyperliquid",
+}
+# 名字 -> FRED 数据代码（美债收益率、利率），要环境变量 FRED_API_KEY
+FRED_SERIES = {
+    "us2y": "DGS2",        # 2 年期美债收益率
+    "us5y": "DGS5",        # 5 年期
+    "us10y": "DGS10",      # 10 年期
+    "fed_upper": "DFEDTARU",  # 联邦基金利率目标上限
+}
 # 我持有的币（写帖子时自动加「（我持有）」）
 HOLDINGS = {"BTC", "HYPE"}
 

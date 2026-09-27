@@ -93,3 +93,47 @@ def test_first_issue_variant():
     parts = {"主贴": "累计 A", "主贴·首期": "第 1 期", "回复": "r"}
     assert pick_variant(parts, {}) == {"主贴": "第 1 期", "回复": "r"}
     assert pick_variant(parts, {"pred_count": "3"}) == {"主贴": "累计 A", "回复": "r"}
+
+
+def test_defillama_parsers():
+    day = 86400
+    stable = [{"date": str(1_000_000 + i * day), "totalCirculatingUSD": {"peggedUSD": 100.0 + i, "peggedEUR": 1.0}}
+              for i in range(8)]
+    d, v, chg = fetch_daily.parse_stablecoins(stable)
+    assert v == 108.0 and round(chg, 4) == round((108 / 101 - 1) * 100, 4)
+    d, v, chg = fetch_daily.parse_tvl([{"date": 1_000_000, "tvl": 50.0}, {"date": 1_000_000 + 3 * day, "tvl": 60.0}])
+    assert v == 60.0 and chg is None  # 不够 7 天，不算变化
+
+
+def test_fred_parser_skips_dots():
+    obs = [{"date": "2026-09-16", "value": "4.80"}, {"date": "2026-09-18", "value": "4.90"},
+           {"date": "2026-09-23", "value": "5.03"}, {"date": "2026-09-25", "value": "."}]
+    assert fetch_daily.parse_fred(obs) == ("2026-09-23", 5.03, 0.23)
+
+
+def test_polymarket_parser():
+    m = {"outcomes": '["Yes", "No"]', "outcomePrices": '["0.62", "0.38"]', "endDate": "2026-10-31T12:00:00Z"}
+    assert fetch_daily.parse_polymarket(m) == (0.62, "2026-10-31")
+    m = {"outcomes": ["No", "Yes"], "outcomePrices": ["0.7", "0.3"]}
+    assert fetch_daily.parse_polymarket(m)[0] == 0.3
+
+
+def test_data_vars_from_csv(tmp_path, monkeypatch):
+    import common
+    from make_post_pack import data_vars
+    rows = [fetch_daily.row("defi", "HYPE", "holders_revenue_30d", 58710000, "USD", "DefiLlama", "u"),
+            fetch_daily.row("defi", "ALL", "stablecoin", 3.0e11, "USD", "DefiLlama", "u", ref_date="2026-09-26"),
+            fetch_daily.row("defi", "ALL", "stablecoin_chg_7d", 0.5, "%", "DefiLlama", "u"),
+            fetch_daily.row("macro", "us5y", "value", 5.03, "%", "FRED", "u", ref_date="2026-09-23"),
+            fetch_daily.row("macro", "us5y", "chg_1w", 0.23, "pp", "FRED", "u"),
+            fetch_daily.row("polymarket", "BTC 10 月收涨", "yes_prob", 58.0, "%", "Polymarket", "u")]
+    import csv
+    p = tmp_path / "2099-01-01.csv"
+    with open(p, "w", newline="", encoding="utf-8-sig") as fh:
+        w = csv.DictWriter(fh, fieldnames=fetch_daily.FIELDS); w.writeheader(); w.writerows(rows)
+    monkeypatch.setattr(common, "DATA", tmp_path)
+    v = data_vars(common.Daily("2099-01-01"))
+    assert v["HYPE_holders_revenue_30d"] == "$58.71M"
+    assert v["stable_mcap"] == "$300.00B" and v["stable_7d"] == "+0.50%"
+    assert v["us5y"] == "5.03%" and v["us5y_chg_1w"] == "+0.23 个百分点"
+    assert "BTC 10 月收涨：市场给 58%" in v["pm_block"]
