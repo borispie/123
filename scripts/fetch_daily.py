@@ -17,6 +17,7 @@ import argparse
 import csv
 import io
 import re
+import os
 import sys
 from datetime import date, timedelta
 
@@ -121,7 +122,8 @@ def _fetch_html(url: str) -> str:
         # Farside 有时挡脚本，用浏览器再试一次
         from playwright.sync_api import sync_playwright
         with sync_playwright() as p:
-            b = p.chromium.launch()
+            exe = os.environ.get("CHROMIUM_PATH")
+            b = p.chromium.launch(executable_path=exe) if exe else p.chromium.launch()
             pg = b.new_page(user_agent=UA)
             pg.goto(url, wait_until="domcontentloaded", timeout=60000)
             pg.wait_for_selector("table", timeout=30000)
