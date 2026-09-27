@@ -226,6 +226,14 @@ LLAMA_STABLE = "https://stablecoins.llama.fi/stablecoincharts/all"
 FEE_TYPES = (("dailyFees", "fees"), ("dailyRevenue", "revenue"), ("dailyHoldersRevenue", "holders_revenue"))
 
 
+def fees_ref_date(d: dict) -> str:
+    """total24h 是最后一个完整的 UTC 日（不是今天），日期取 totalDataChart 最后一个点。"""
+    chart = d.get("totalDataChart") or []
+    if not chart:
+        return ""
+    return datetime.fromtimestamp(int(chart[-1][0]), timezone.utc).date().isoformat()
+
+
 def fetch_protocols() -> list[dict]:
     """每个协议的手续费、收入、持币人收入（Hyperliquid 的持币人收入基本就是回购）。"""
     out = []
@@ -234,14 +242,14 @@ def fetch_protocols() -> list[dict]:
         for dtype, name in FEE_TYPES:
             try:
                 d = get(f"{LLAMA}/summary/fees/{slug}",
-                        params={"dataType": dtype, "excludeTotalDataChart": "true",
-                                "excludeTotalDataChartBreakdown": "true"}).json()
+                        params={"dataType": dtype, "excludeTotalDataChartBreakdown": "true"}).json()
             except Exception as e:
                 print(f"[DefiLlama] {slug} {dtype} 拉取失败：{e}", file=sys.stderr)
                 d = {}
+            ref = fees_ref_date(d)
             for k in ("24h", "7d", "30d"):
                 v = d.get(f"total{k}")
-                out.append(row("defi", sym, f"{name}_{k}", v, "USD", "DefiLlama", page, ref_date=date.today().isoformat(),
+                out.append(row("defi", sym, f"{name}_{k}", v, "USD", "DefiLlama", page, ref_date=ref,
                                note="" if v is not None else missing(f"{sym} {name} {k}")))
     return out
 
@@ -360,6 +368,22 @@ def parse_polymarket(m: dict) -> tuple[float, str]:
     return float(prices[i]), (m.get("endDate") or "")[:10]
 
 
+PM_WEB = "https://polymarket.com/event/{slug}"
+
+
+def pm_page(m: dict, fallback_slug: str) -> str:
+    """帖子回复里放的来源链接：polymarket.com 的事件页，不放 API 地址。"""
+    evs = m.get("events") or []
+    return PM_WEB.format(slug=(evs[0].get("slug") if evs else None) or fallback_slug)
+
+
+def pick_event_markets(markets: list[dict], n: int = PM_MAX_PER_EVENT) -> list[dict]:
+    """事件里进行中的市场，按成交量取前 n 个，再按价位（groupItemThreshold）排好。"""
+    live = [m for m in markets if not m.get("closed")]
+    top = sorted(live, key=lambda m: float(m.get("volumeNum") or m.get("volume") or 0), reverse=True)[:n]
+    return sorted(top, key=lambda m: float(m.get("groupItemThreshold") or 0))
+
+
 def fetch_polymarket() -> list[dict]:
     """data/polymarket.csv 每行一个：slug（网址 polymarket.com/event/xxx 或 /market/xxx 里的 xxx）, label（帖子里怎么叫它）。
     先按「单个市场」查，查不到再按「事件」查；一个事件里有好几个市场（比如不同价位），每个都记一行。"""
@@ -374,27 +398,30 @@ def fetch_polymarket() -> list[dict]:
         label = r["label"].strip() or slug
         url = GAMMA.format(slug=slug)
         try:
-            p, end = parse_polymarket(get(url, tries=1).json())
-            out.append(row("polymarket", label, "yes_prob", round(p * 100, 1), "%", "Polymarket", url, ref_date=end))
+            m = get(url, tries=1).json()
+            p, end = parse_polymarket(m)
+            out.append(row("polymarket", label, "yes_prob", round(p * 100, 1), "%", "Polymarket",
+                           pm_page(m, slug), ref_date=end))
             continue
         except Exception:
             pass
         ev_url = GAMMA_EVENT.format(slug=slug)
         try:
             ev = get(ev_url).json()
-            markets = [m for m in ev.get("markets", []) if not m.get("closed")][:PM_MAX_PER_EVENT]
+            markets = pick_event_markets(ev.get("markets", []))
             if not markets:
                 raise ValueError("事件里没有进行中的市场")
             for m in markets:
                 p, end = parse_polymarket(m)
                 name = m.get("groupItemTitle") or m.get("question") or ""
                 out.append(row("polymarket", f"{label} {name}".strip(), "yes_prob", round(p * 100, 1), "%",
-                               "Polymarket", ev_url, ref_date=end))
+                               "Polymarket", PM_WEB.format(slug=ev.get("slug") or slug), ref_date=end))
         except Exception as e:
             print(f"[Polymarket] {slug} 拉取失败：{e}", file=sys.stderr)
-            out.append(row("polymarket", label, "yes_prob", None, "%", "Polymarket", url,
+            out.append(row("polymarket", label, "yes_prob", None, "%", "Polymarket", PM_WEB.format(slug=slug),
                            note=missing(f"Polymarket {label} 概率（检查 data/polymarket.csv 里的 slug）")))
     return out
+
 
 def main():
     ap = argparse.ArgumentParser()

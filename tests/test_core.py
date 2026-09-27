@@ -118,6 +118,19 @@ def test_polymarket_parser():
     assert fetch_daily.parse_polymarket(m)[0] == 0.3
 
 
+def test_fees_ref_date_is_last_full_day():
+    assert fetch_daily.fees_ref_date({"totalDataChart": [[1790208000, 5], [1790294400, 7]]}) == "2026-09-25"
+    assert fetch_daily.fees_ref_date({}) == ""
+
+
+def test_polymarket_event_pick_and_link():
+    ms = [{"groupItemThreshold": "2", "volumeNum": 10}, {"groupItemThreshold": "0", "volumeNum": 30},
+          {"groupItemThreshold": "1", "volumeNum": 20}, {"groupItemThreshold": "3", "volumeNum": 99, "closed": True}]
+    assert [m["groupItemThreshold"] for m in fetch_daily.pick_event_markets(ms, n=2)] == ["0", "1"]
+    assert fetch_daily.pm_page({"events": [{"slug": "ev"}]}, "mk") == "https://polymarket.com/event/ev"
+    assert fetch_daily.pm_page({}, "mk") == "https://polymarket.com/event/mk"
+
+
 def test_data_vars_from_csv(tmp_path, monkeypatch):
     import common
     from make_post_pack import data_vars
