@@ -1,0 +1,88 @@
+﻿section,symbol,metric,value,unit,ref_date,source,source_url,note,fetched_at
+price,BTC,price,83354,USD,2026-09-28,CoinGecko,https://www.coingecko.com/en/coins/bitcoin,,2026-09-28T03:59:28Z
+price,BTC,chg_24h,-1.22319,%,2026-09-28,CoinGecko,https://www.coingecko.com/en/coins/bitcoin,,2026-09-28T03:59:28Z
+price,BTC,chg_7d,2.9926,%,2026-09-28,CoinGecko,https://www.coingecko.com/en/coins/bitcoin,,2026-09-28T03:59:28Z
+price,BTC,chg_30d,7.2134,%,2026-09-28,CoinGecko,https://www.coingecko.com/en/coins/bitcoin,,2026-09-28T03:59:28Z
+price,BTC,market_cap,1674682661253,USD,2026-09-28,CoinGecko,https://www.coingecko.com/en/coins/bitcoin,,2026-09-28T03:59:28Z
+price,BTC,fdv,1674682661253,USD,2026-09-28,CoinGecko,https://www.coingecko.com/en/coins/bitcoin,,2026-09-28T03:59:28Z
+price,ETH,price,2652.23,USD,2026-09-28,CoinGecko,https://www.coingecko.com/en/coins/ethereum,,2026-09-28T03:59:28Z
+price,ETH,chg_24h,-1.63229,%,2026-09-28,CoinGecko,https://www.coingecko.com/en/coins/ethereum,,2026-09-28T03:59:28Z
+price,ETH,chg_7d,0.0817,%,2026-09-28,CoinGecko,https://www.coingecko.com/en/coins/ethereum,,2026-09-28T03:59:28Z
+price,ETH,chg_30d,8.5459,%,2026-09-28,CoinGecko,https://www.coingecko.com/en/coins/ethereum,,2026-09-28T03:59:28Z
+price,ETH,market_cap,323819074568,USD,2026-09-28,CoinGecko,https://www.coingecko.com/en/coins/ethereum,,2026-09-28T03:59:28Z
+price,ETH,fdv,323819074568,USD,2026-09-28,CoinGecko,https://www.coingecko.com/en/coins/ethereum,,2026-09-28T03:59:28Z
+price,SOL,price,119.89,USD,2026-09-28,CoinGecko,https://www.coingecko.com/en/coins/solana,,2026-09-28T03:59:28Z
+price,SOL,chg_24h,-0.58902,%,2026-09-28,CoinGecko,https://www.coingecko.com/en/coins/solana,,2026-09-28T03:59:28Z
+price,SOL,chg_7d,8.1422,%,2026-09-28,CoinGecko,https://www.coingecko.com/en/coins/solana,,2026-09-28T03:59:28Z
+price,SOL,chg_30d,15.2166,%,2026-09-28,CoinGecko,https://www.coingecko.com/en/coins/solana,,2026-09-28T03:59:28Z
+price,SOL,market_cap,70469360123,USD,2026-09-28,CoinGecko,https://www.coingecko.com/en/coins/solana,,2026-09-28T03:59:28Z
+price,SOL,fdv,76111243881,USD,2026-09-28,CoinGecko,https://www.coingecko.com/en/coins/solana,,2026-09-28T03:59:28Z
+price,BNB,price,770.84,USD,2026-09-28,CoinGecko,https://www.coingecko.com/en/coins/binance-coin,,2026-09-28T03:59:28Z
+price,BNB,chg_24h,-0.08652,%,2026-09-28,CoinGecko,https://www.coingecko.com/en/coins/binance-coin,,2026-09-28T03:59:28Z
+price,BNB,chg_7d,-0.4022,%,2026-09-28,CoinGecko,https://www.coingecko.com/en/coins/binance-coin,,2026-09-28T03:59:28Z
+price,BNB,chg_30d,11.6756,%,2026-09-28,CoinGecko,https://www.coingecko.com/en/coins/binance-coin,,2026-09-28T03:59:28Z
+price,BNB,market_cap,102640489961,USD,2026-09-28,CoinGecko,https://www.coingecko.com/en/coins/binance-coin,,2026-09-28T03:59:28Z
+price,BNB,fdv,102640491056,USD,2026-09-28,CoinGecko,https://www.coingecko.com/en/coins/binance-coin,,2026-09-28T03:59:28Z
+price,HYPE,price,89.56,USD,2026-09-28,CoinGecko,https://www.coingecko.com/en/coins/hyperliquid,,2026-09-28T03:59:28Z
+price,HYPE,chg_24h,-3.94509,%,2026-09-28,CoinGecko,https://www.coingecko.com/en/coins/hyperliquid,,2026-09-28T03:59:28Z
+price,HYPE,chg_7d,-2.7603,%,2026-09-28,CoinGecko,https://www.coingecko.com/en/coins/hyperliquid,,2026-09-28T03:59:28Z
+price,HYPE,chg_30d,11.8549,%,2026-09-28,CoinGecko,https://www.coingecko.com/en/coins/hyperliquid,,2026-09-28T03:59:28Z
+price,HYPE,market_cap,19941440249,USD,2026-09-28,CoinGecko,https://www.coingecko.com/en/coins/hyperliquid,,2026-09-28T03:59:28Z
+price,HYPE,fdv,85639766643,USD,2026-09-28,CoinGecko,https://www.coingecko.com/en/coins/hyperliquid,,2026-09-28T03:59:28Z
+etf,BTC,etf_net_flow,134.5,USD m,2026-09-25,Farside（手填）,https://farside.co.uk/btc/,,2026-09-28T03:59:37Z
+etf,ETH,etf_net_flow,87.0,USD m,2026-09-25,Farside（手填）,https://farside.co.uk/eth/,,2026-09-28T03:59:46Z
+unlock,OP,amount,31340000,token,2026-09-30,crypto-corner.com,https://crypto-corner.com/2026/09/22/upcoming-token-unlocks-sep-oct-2026/,,2026-09-28T03:59:46Z
+unlock,OP,pct_circulating,1.36,%,2026-09-30,crypto-corner.com,https://crypto-corner.com/2026/09/22/upcoming-token-unlocks-sep-oct-2026/,,2026-09-28T03:59:46Z
+unlock,OP,value_usd,4000000,USD,2026-09-30,crypto-corner.com,https://crypto-corner.com/2026/09/22/upcoming-token-unlocks-sep-oct-2026/,,2026-09-28T03:59:46Z
+unlock,TIA,amount,17340000,token,2026-09-30,crypto-corner.com,https://crypto-corner.com/2026/09/22/upcoming-token-unlocks-sep-oct-2026/,,2026-09-28T03:59:46Z
+unlock,TIA,pct_circulating,1.79,%,2026-09-30,crypto-corner.com,https://crypto-corner.com/2026/09/22/upcoming-token-unlocks-sep-oct-2026/,,2026-09-28T03:59:46Z
+unlock,TIA,value_usd,7400000,USD,2026-09-30,crypto-corner.com,https://crypto-corner.com/2026/09/22/upcoming-token-unlocks-sep-oct-2026/,,2026-09-28T03:59:46Z
+unlock,SUI,amount,64200000,token,2026-10-01,crypto-corner.com,https://crypto-corner.com/2026/09/22/upcoming-token-unlocks-sep-oct-2026/,,2026-09-28T03:59:46Z
+unlock,SUI,pct_circulating,1.57,%,2026-10-01,crypto-corner.com,https://crypto-corner.com/2026/09/22/upcoming-token-unlocks-sep-oct-2026/,,2026-09-28T03:59:46Z
+unlock,SUI,value_usd,61200000,USD,2026-10-01,crypto-corner.com,https://crypto-corner.com/2026/09/22/upcoming-token-unlocks-sep-oct-2026/,,2026-09-28T03:59:46Z
+unlock,WLD,amount,37500000,token,2026-10-01,crypto-corner.com,https://crypto-corner.com/2026/09/22/upcoming-token-unlocks-sep-oct-2026/,,2026-09-28T03:59:46Z
+unlock,WLD,pct_circulating,1.03,%,2026-10-01,crypto-corner.com,https://crypto-corner.com/2026/09/22/upcoming-token-unlocks-sep-oct-2026/,,2026-09-28T03:59:46Z
+unlock,WLD,value_usd,16600000,USD,2026-10-01,crypto-corner.com,https://crypto-corner.com/2026/09/22/upcoming-token-unlocks-sep-oct-2026/,,2026-09-28T03:59:46Z
+unlock,ENA,amount,12900000,token,2026-10-02,crypto-corner.com,https://crypto-corner.com/2026/09/22/upcoming-token-unlocks-sep-oct-2026/,,2026-09-28T03:59:46Z
+unlock,ENA,pct_circulating,0.13,%,2026-10-02,crypto-corner.com,https://crypto-corner.com/2026/09/22/upcoming-token-unlocks-sep-oct-2026/,,2026-09-28T03:59:46Z
+unlock,ENA,value_usd,2700000,USD,2026-10-02,crypto-corner.com,https://crypto-corner.com/2026/09/22/upcoming-token-unlocks-sep-oct-2026/,,2026-09-28T03:59:46Z
+unlock,W,amount,47200000,token,2026-10-03,crypto-corner.com,https://crypto-corner.com/2026/09/22/upcoming-token-unlocks-sep-oct-2026/,,2026-09-28T03:59:46Z
+unlock,W,pct_circulating,0.72,%,2026-10-03,crypto-corner.com,https://crypto-corner.com/2026/09/22/upcoming-token-unlocks-sep-oct-2026/,,2026-09-28T03:59:46Z
+unlock,W,value_usd,556700,USD,2026-10-03,crypto-corner.com,https://crypto-corner.com/2026/09/22/upcoming-token-unlocks-sep-oct-2026/,,2026-09-28T03:59:46Z
+defi,HYPE,fees_24h,1754599,USD,2026-09-27,DefiLlama,https://defillama.com/protocol/hyperliquid,,2026-09-28T03:59:47Z
+defi,HYPE,fees_7d,19460171,USD,2026-09-27,DefiLlama,https://defillama.com/protocol/hyperliquid,,2026-09-28T03:59:47Z
+defi,HYPE,fees_30d,71066038,USD,2026-09-27,DefiLlama,https://defillama.com/protocol/hyperliquid,,2026-09-28T03:59:47Z
+defi,HYPE,revenue_24h,1337891,USD,2026-09-27,DefiLlama,https://defillama.com/protocol/hyperliquid,,2026-09-28T03:59:48Z
+defi,HYPE,revenue_7d,15057151,USD,2026-09-27,DefiLlama,https://defillama.com/protocol/hyperliquid,,2026-09-28T03:59:48Z
+defi,HYPE,revenue_30d,55163589,USD,2026-09-27,DefiLlama,https://defillama.com/protocol/hyperliquid,,2026-09-28T03:59:48Z
+defi,HYPE,holders_revenue_24h,1337891,USD,2026-09-27,DefiLlama,https://defillama.com/protocol/hyperliquid,,2026-09-28T03:59:49Z
+defi,HYPE,holders_revenue_7d,15057151,USD,2026-09-27,DefiLlama,https://defillama.com/protocol/hyperliquid,,2026-09-28T03:59:49Z
+defi,HYPE,holders_revenue_30d,55163589,USD,2026-09-27,DefiLlama,https://defillama.com/protocol/hyperliquid,,2026-09-28T03:59:49Z
+defi,ALL,stablecoin,313035254995.0301,USD,2026-09-28,DefiLlama,https://defillama.com/stablecoins,,2026-09-28T03:59:49Z
+defi,ALL,stablecoin_chg_7d,0.399713500092691,%,2026-09-28,DefiLlama,https://defillama.com/stablecoins,,2026-09-28T03:59:49Z
+defi,ALL,defi_tvl,94947180307.0,USD,2026-09-28,DefiLlama,https://defillama.com/,,2026-09-28T03:59:50Z
+defi,ALL,defi_tvl_chg_7d,0.9137361739296024,%,2026-09-28,DefiLlama,https://defillama.com/,,2026-09-28T03:59:50Z
+macro,us2y,value,4.87,%,2026-09-24,FRED,https://fred.stlouisfed.org/series/DGS2,,2026-09-28T03:59:51Z
+macro,us2y,chg_1w,0.2,pp,2026-09-24,FRED,https://fred.stlouisfed.org/series/DGS2,,2026-09-28T03:59:51Z
+macro,us5y,value,5.03,%,2026-09-24,FRED,https://fred.stlouisfed.org/series/DGS5,,2026-09-28T03:59:51Z
+macro,us5y,chg_1w,0.25,pp,2026-09-24,FRED,https://fred.stlouisfed.org/series/DGS5,,2026-09-28T03:59:51Z
+macro,us10y,value,5.18,%,2026-09-24,FRED,https://fred.stlouisfed.org/series/DGS10,,2026-09-28T03:59:52Z
+macro,us10y,chg_1w,0.24,pp,2026-09-24,FRED,https://fred.stlouisfed.org/series/DGS10,,2026-09-28T03:59:52Z
+macro,fed_upper,value,4.0,%,2026-09-27,FRED,https://fred.stlouisfed.org/series/DFEDTARU,,2026-09-28T03:59:53Z
+macro,fed_upper,chg_1w,0.0,pp,2026-09-27,FRED,https://fred.stlouisfed.org/series/DFEDTARU,,2026-09-28T03:59:53Z
+polymarket,"BTC 2026 年内价位 ↑ 1,000,000",yes_prob,0.3,%,2027-01-01,Polymarket,https://polymarket.com/event/what-price-will-bitcoin-hit-before-2027,,2026-09-28T03:59:55Z
+polymarket,"BTC 2026 年内价位 ↑ 250,000",yes_prob,0.7,%,2027-01-01,Polymarket,https://polymarket.com/event/what-price-will-bitcoin-hit-before-2027,,2026-09-28T03:59:55Z
+polymarket,"BTC 2026 年内价位 ↑ 100,000",yes_prob,34.5,%,2027-01-01,Polymarket,https://polymarket.com/event/what-price-will-bitcoin-hit-before-2027,,2026-09-28T03:59:55Z
+polymarket,"BTC 2026 年内价位 ↓ 55,000",yes_prob,8.0,%,2027-01-01,Polymarket,https://polymarket.com/event/what-price-will-bitcoin-hit-before-2027,,2026-09-28T03:59:55Z
+polymarket,"BTC 2026 年内价位 ↓ 50,000",yes_prob,6.5,%,2027-01-01,Polymarket,https://polymarket.com/event/what-price-will-bitcoin-hit-before-2027,,2026-09-28T03:59:55Z
+polymarket,"BTC 2026 年内价位 ↓ 45,000",yes_prob,4.5,%,2027-01-01,Polymarket,https://polymarket.com/event/what-price-will-bitcoin-hit-before-2027,,2026-09-28T03:59:55Z
+polymarket,"BTC 2026 年内价位 ↓ 35,000",yes_prob,2.4,%,2027-01-01,Polymarket,https://polymarket.com/event/what-price-will-bitcoin-hit-before-2027,,2026-09-28T03:59:55Z
+polymarket,"BTC 2026 年内价位 ↓ 15,000",yes_prob,1.8,%,2027-01-01,Polymarket,https://polymarket.com/event/what-price-will-bitcoin-hit-before-2027,,2026-09-28T03:59:55Z
+polymarket,HYPE 2026 年内价位 ↑ 200,yes_prob,6.0,%,2027-01-01,Polymarket,https://polymarket.com/event/what-price-will-hyperliquid-hit-before-2027,,2026-09-28T03:59:57Z
+polymarket,HYPE 2026 年内价位 ↑ 100,yes_prob,81.5,%,2027-01-01,Polymarket,https://polymarket.com/event/what-price-will-hyperliquid-hit-before-2027,,2026-09-28T03:59:57Z
+polymarket,HYPE 2026 年内价位 ↓ 40,yes_prob,7.0,%,2027-01-01,Polymarket,https://polymarket.com/event/what-price-will-hyperliquid-hit-before-2027,,2026-09-28T03:59:57Z
+polymarket,HYPE 2026 年内价位 ↓ 30,yes_prob,4.5,%,2027-01-01,Polymarket,https://polymarket.com/event/what-price-will-hyperliquid-hit-before-2027,,2026-09-28T03:59:57Z
+polymarket,HYPE 2026 年内价位 ↓ 20,yes_prob,2.9,%,2027-01-01,Polymarket,https://polymarket.com/event/what-price-will-hyperliquid-hit-before-2027,,2026-09-28T03:59:57Z
+polymarket,HYPE 2026 年内价位 ↓ 16,yes_prob,3.0,%,2027-01-01,Polymarket,https://polymarket.com/event/what-price-will-hyperliquid-hit-before-2027,,2026-09-28T03:59:57Z
+polymarket,HYPE 2026 年内价位 ↓ 12,yes_prob,2.8,%,2027-01-01,Polymarket,https://polymarket.com/event/what-price-will-hyperliquid-hit-before-2027,,2026-09-28T03:59:57Z
+polymarket,HYPE 2026 年内价位 ↓ 8,yes_prob,2.5,%,2027-01-01,Polymarket,https://polymarket.com/event/what-price-will-hyperliquid-hit-before-2027,,2026-09-28T03:59:57Z
