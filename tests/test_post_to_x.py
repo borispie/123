@@ -329,3 +329,14 @@ def test_pack_json_image_paths():
                                  [], [])
     assert j["images"] == ["output/2099-01-05/price.png"] and j["checks"] == {"passed": True, "issues": []}
     assert j["reply"] == "" and j["short"] == ""
+
+
+def test_short_pointing_to_main_needs_main_first(env, capsys):
+    short = "$BTC（我持有） 7 天 +5.00%。完整数据表在今天的主贴里。"
+    write_pack(env, short=short)
+    fake = FakeX()
+    assert run(fake, "--part", "short", "--send") == 1  # 主贴还没发
+    assert fake.calls == [] and "今天的主贴还没发" in capsys.readouterr().out
+    assert run(fake, "--part", "all", "--send", "--view", VIEW) == 0  # 一起发：先主贴后短推
+    texts = [t["text"] for t in fake.tweets]
+    assert texts[-1] == short and texts.index(short) > 0

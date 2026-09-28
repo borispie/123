@@ -36,6 +36,7 @@ MAX_IMAGES = 4
 LIMIT = 280       # 拆串推时每条的上限（按 X 计数，中文算 2）
 RETRY_WAIT = 3    # 秒。请求失败等一下再试 1 次
 NAMES = {"main": "主贴", "reply": "回复", "short": "短推"}
+MAIN_REF = "今天的主贴"  # 短推里出现这几个字，就要求当天主贴已经发了
 VIEW_LINE = re.compile(r"^我的看法：【需补充[^】]*】[ \t]*$", re.M)
 
 AUTH_HINT = """常见原因：
@@ -400,6 +401,10 @@ def main(argv: list[str] | None = None, client: XClient | None = None) -> int:
             problems.append("--view 是空的")
         elif not ok:
             problems.append("主贴里没有「我的看法：【需补充…】」这一行，--view 没地方放")
+
+    # 短推里写了「今天的主贴」，主贴就得先发（或者这次一起发），不然这句话不成立
+    if "short" in parts and MAIN_REF in texts["short"] and "main" not in done and "main" not in parts:
+        problems.append(f"短推里写了「{MAIN_REF}」，但今天的主贴还没发。先发主贴（--part main），或者用 --part all 一起发")
 
     images = image_paths(pack) if "main" in parts else []
     problems += precheck(texts, parts, images)
