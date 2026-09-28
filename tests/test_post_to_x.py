@@ -258,6 +258,14 @@ def test_403_explained_and_not_retried(env, capsys):
         assert word in err
 
 
+def test_402_says_balance_empty(env, capsys):
+    write_pack(env)
+    fake = FakeX(fail=[Resp(402, {"title": "Payment Required", "detail": "credits depleted"})])
+    assert run(fake, "--part", "short", "--send") == 1
+    assert len(fake.calls) == 1 and not (env / "posted.csv").exists()
+    assert "余额用完了" in capsys.readouterr().err
+
+
 def test_missing_keys_named(env, monkeypatch):
     write_pack(env)
     monkeypatch.delenv("X_ACCESS_TOKEN_SECRET")

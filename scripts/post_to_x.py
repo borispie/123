@@ -111,7 +111,11 @@ def api_error(status: int, body: str) -> XError:
     elif e.duplicate:
         msg = (f"X 说内容重复（HTTP {status}）：{detail}\n"
                "可能上一次其实发成功了：去主页看一眼，发了的话把 tweet_id 手动记进 data/posted.csv")
-    elif status in (401, 402, 403):
+    elif status == 402 or "credits" in body.lower():
+        msg = (f"X API 余额用完了（HTTP {status}）：{detail}\n"
+               "去 developer.x.com 开发者后台充值 credits 再发。充完第一次发如果报 403，再按下面检查权限：\n"
+               f"{AUTH_HINT}")
+    elif status in (401, 403):
         msg = f"X 拒绝了请求（HTTP {status}）：{detail}\n{AUTH_HINT}"
     elif status == 429:
         msg = f"限流了（HTTP 429）：{detail}\n过 15 分钟再试"

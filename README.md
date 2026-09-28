@@ -135,7 +135,8 @@ python scripts/post_to_x.py --date 2026-09-27 ...            # 指定日期
 
 | 报错 | 原因 / 怎么办 |
 |---|---|
-| 401 / 403 | App 权限不是 Read and write；改完权限没重新生成 Access Token；余额为 0；key 填错 |
+| 402 / credits depleted | API 余额为 0，去开发者后台充值 |
+| 401 / 403 | App 权限不是 Read and write；改完权限没重新生成 Access Token；key 填错 |
 | 内容重复 | 可能上一次其实发成功了。去主页看一眼，发了就把 tweet_id 手动记进 `data/posted.csv` |
 | 429 | 限流，过 15 分钟再试 |
 | 缺环境变量 | 上面第 4 步，重开终端 |
