@@ -102,6 +102,9 @@ key 只放环境变量，不要写进仓库。脚本不会打印 key，也不会
 
 ### 用法
 
+「我的看法」默认自动写。想用自己的，在 `data/views.csv` 加一行 `日期,看法`（第一行是表头 `date,view`），或者发的时候加 `--view "……"`。
+
+
 ```bash
 python scripts/post_to_x.py                                  # 预览今天的：要发什么、多少字符、带哪几张图、能不能发
 python scripts/post_to_x.py --view "如果……那么……"            # 预览，把主贴里「我的看法：【需补充…】」那一行换成这句

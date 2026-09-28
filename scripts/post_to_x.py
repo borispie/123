@@ -37,7 +37,7 @@ LIMIT = 280       # 拆串推时每条的上限（按 X 计数，中文算 2）
 RETRY_WAIT = 3    # 秒。请求失败等一下再试 1 次
 NAMES = {"main": "主贴", "reply": "回复", "short": "短推"}
 MAIN_REF = "今天的主贴"  # 短推里出现这几个字，就要求当天主贴已经发了
-VIEW_LINE = re.compile(r"^我的看法：【需补充[^】]*】[ \t]*$", re.M)
+VIEW_LINE = re.compile(r"^我的看法：.*$", re.M)  # 自动写的或【需补充】都能被 --view 换掉
 
 AUTH_HINT = """常见原因：
   1. App 权限要设成 Read and write：developer.x.com → 你的 App → User authentication settings → App permissions

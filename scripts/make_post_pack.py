@@ -19,11 +19,33 @@ from urllib.parse import quote
 
 import pandas as pd
 
-from common import (COINS, DEFILLAMA_PROTOCOLS, DISCLAIMER, FRED_SERIES, HOLDINGS, OUTPUT, ROOT, TEMPLATES, Daily,
+from common import (COINS, DATA as DATA_DIR, DEFILLAMA_PROTOCOLS, DISCLAIMER, FRED_SERIES, HOLDINGS, OUTPUT, ROOT, TEMPLATES, Daily,
                     fmt_big, fmt_pct, fmt_price, fmt_signed, missing)
 
 COLUMNS = ["周一数据", "周二代币经济", "周三链上巨鲸", "周四宏观", "周五项目深度", "周六统计小课", "周日预测复盘"]
 BANNED = ["必涨", "必跌", "稳了"]
+
+# 每个栏目用到哪几块数据：回复里只写这些来源的名字
+COLUMN_SECTIONS = {
+    "周一数据": ["price", "etf", "defi"],
+    "周二代币经济": ["unlock", "price", "defi"],
+    "周三链上巨鲸": ["etf", "price"],
+    "周四宏观": ["macro", "etf", "price"],
+    "周五项目深度": ["defi", "price"],
+    "周六统计小课": ["price"],
+    "周日预测复盘": ["polymarket"],
+}
+# 每个栏目主贴带哪几张图（按顺序，最多 4 张，没生成的跳过）
+COLUMN_IMAGES = {
+    "周一数据": ["rank_7d", "fdv", "etf"],
+    "周二代币经济": ["unlock", "fdv"],
+    "周三链上巨鲸": ["etf", "rank_7d"],
+    "周四宏观": ["etf", "price"],
+    "周五项目深度": ["fdv", "price"],
+    "周六统计小课": ["rank_7d"],
+    "周日预测复盘": ["预测复盘", "price"],
+}
+VIEWS = DATA_DIR / "views.csv"  # 想用自己的看法：一行 date,view
 MAX_TAGS = 2
 MINUS = "-"  # 帖子里用普通减号，方便复制
 
@@ -54,6 +76,12 @@ def price_vars(d: Daily | None) -> dict:
         best, worst = max(ch7, key=ch7.get), min(ch7, key=ch7.get)
         v.update(best_7d=best, best_7d_tag=tag(best), best_7d_pct=fmt_pct(ch7[best], MINUS),
                  worst_7d=worst, worst_7d_tag=tag(worst), worst_7d_pct=fmt_pct(ch7[worst], MINUS))
+    share = {s: d.v("price", s, "market_cap") / d.v("price", s, "fdv") for s in COINS
+             if d.v("price", s, "market_cap") and d.v("price", s, "fdv")}
+    if share:
+        s_min = min(share, key=share.get)
+        r = min(share[s_min], 1.0)
+        v["fdv_line"] = f"{tag(s_min)} 的流通市值只占 FDV 的 {r * 100:.0f}%，还有 {(1 - r) * 100:.0f}% 的币没放出来。"
     for s in ("BTC", "ETH"):
         x = d.v("etf", s, "etf_net_flow")
         if x is not None:
@@ -142,7 +170,49 @@ def pred_vars(day: date) -> dict:
     return v
 
 
-def build_vars(day: date) -> dict:
+def source_names(d: Daily, sections: list[str]) -> str:
+    """回复里的一行来源：只写名字，去重，按栏目用到的数据块排。「（手填）」这种备注不写出去。"""
+    names = []
+    for sec in sections:
+        for name in d.sources(sec).values():
+            name = re.sub(r"（[^）]*）", "", name).strip()
+            if name and name not in names:
+                names.append(name)
+    return "、".join(names)
+
+
+def user_view(day: date) -> str | None:
+    """data/views.csv 里当天写了看法就用它。"""
+    if not VIEWS.exists():
+        return None
+    df = pd.read_csv(VIEWS, dtype=str, encoding="utf-8-sig").fillna("")
+    hit = df[df["date"].str.strip() == day.isoformat()]
+    return " ".join(hit.iloc[-1]["view"].split()) if not hit.empty and hit.iloc[-1]["view"].strip() else None
+
+
+def auto_view(column: str, d: Daily | None, v: dict) -> str | None:
+    """没给看法时，按当天数据写一句条件句。数据不够就返回 None（模板里会显示【需补充】）。"""
+    if d is None:
+        return None
+    if column == "周一数据":
+        s7, etf = d.v("defi", "ALL", "stablecoin_chg_7d"), d.v("etf", "BTC", "etf_net_flow")
+        best, worst = v.get("best_7d"), v.get("worst_7d")
+        if s7 is None or etf is None or not best or not worst:
+            return None
+        money = f"稳定币这周{'还在增加' if s7 > 0 else '在减少'}（{fmt_pct(s7, MINUS)}）"
+        flow = f"BTC ETF 最近一个交易日{'净流入' if etf > 0 else '净流出'}"
+        return (f"{money}，{flow}。如果这两个方向下周不变，我会继续偏向 {best} 这类强势币；"
+                f"哪一个先反过来，就要先小心 {worst} 这种弱势币。")
+    if column == "周四宏观":
+        y, c = d.v("macro", "us5y", "value"), d.v("macro", "us5y", "chg_1w")
+        if y is None or c is None:
+            return None
+        return (f"5 年期美债 {y:.2f}%，一周{'涨' if c > 0 else '跌'}了 {abs(c):.2f} 个百分点。"
+                f"如果下周还在往上走，BTC 更难走出单边上涨；开始回落的话，风险资产的压力会小一些。")
+    return None
+
+
+def build_vars(day: date, column: str | None = None) -> dict:
     try:
         d = Daily(day.isoformat())
     except FileNotFoundError as e:
@@ -153,7 +223,11 @@ def build_vars(day: date) -> dict:
     v.update(data_vars(d))
     v.update(pred_vars(day))
     if d is not None:
-        v["sources"] = "\n".join(f"{name}: {u}" for u, name in d.sources().items()) or missing("数据来源链接")
+        secs = COLUMN_SECTIONS.get(column or "", ["price", "etf", "unlock", "defi", "macro", "polymarket"])
+        v["sources"] = source_names(d, secs) or missing("数据来源")
+    view = user_view(day) or auto_view(column or "", d, v)
+    if view:
+        v["view"] = view
     return v
 
 
@@ -290,13 +364,14 @@ def main():
     day = date.fromisoformat(a.date)
     column = a.column or COLUMNS[day.weekday()]
 
-    v = build_vars(day)
+    v = build_vars(day, column)
     parts = pick_variant(split_sections(fill(template_for(column).read_text(encoding="utf-8"), v)), v)
     parts = {k: auto_tag(t) for k, t in parts.items()}
     issues = check(parts)
     out_dir = OUTPUT / day.isoformat()
     out_dir.mkdir(parents=True, exist_ok=True)
-    images = sorted(p.name for p in out_dir.glob("*.png"))
+    wanted = [f"{n}.png" for n in COLUMN_IMAGES.get(column, [])]
+    images = [n for n in wanted if (out_dir / n).exists()] or sorted(p.name for p in out_dir.glob("*.png"))[:4]
 
     md = [f"# 发布包 {day}（{column}）", ""]
     for name in ("主贴", "回复", "短推"):

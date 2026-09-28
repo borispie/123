@@ -7,14 +7,100 @@
   price.png   主流币价格和涨跌
   etf.png     BTC / ETH 现货 ETF 净流入
   unlock.png  未来 7 天解锁（没有就不出）
+  rank_7d.png 近 7 天强弱排行（横向条形图，涨绿跌红）
+  fdv.png     还有多少币没放出来（流通市值 ÷ FDV）
 """
 from __future__ import annotations
 
 import argparse
 from datetime import date
 
-from common import (COINS, OUTPUT, Daily, cell, fmt_big, fmt_price, fmt_signed, pct_cell,
-                    render_table, trend)
+import html
+
+from common import (COINS, DISCLAIMER, OUTPUT, Daily, cell, fmt_big, fmt_pct, fmt_price, fmt_signed, pct_cell,
+                    render_png, render_table, trend)
+
+# ---------- 条形图（和表格同一套颜色） ----------
+
+BAR_CSS = """
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #fff; font-family: "Noto Sans CJK SC", "Noto Sans SC", "PingFang SC", sans-serif; color: #1a1a1a; }
+#root { width: 1200px; background: #fff; padding: 28px 28px 20px; }
+h1 { font-size: 30px; font-weight: 700; margin-bottom: 6px; }
+.sub { font-size: 17px; color: #666; margin-bottom: 22px; }
+.chart { border: 1px solid #d4d4d4; padding: 18px 20px 10px; }
+.row { display: flex; align-items: center; height: 58px; }
+.name { width: 110px; font-size: 22px; font-weight: 700; }
+.track { position: relative; flex: 1; height: 34px; }
+.bar { position: absolute; top: 0; height: 34px; border-radius: 4px; }
+.up { background: #C6EFCE; border: 1px solid #63BE7B; }
+.down { background: #FFC7CE; border: 1px solid #F8696B; }
+.done { background: #1F4E78; }
+.left { background: #F2F2F2; border: 1px solid #d4d4d4; }
+.zero { position: absolute; top: -8px; bottom: -8px; width: 2px; background: #9a9a9a; }
+.val { width: 250px; text-align: right; font-size: 21px; font-variant-numeric: tabular-nums; }
+.val.upc { color: #006100; } .val.downc { color: #9C0006; }
+.key { font-size: 16px; color: #555; margin: 10px 0 0 110px; }
+.key span { display: inline-block; width: 14px; height: 14px; vertical-align: -2px; margin: 0 6px 0 18px; border-radius: 2px; }
+.foot { margin-top: 14px; font-size: 16px; color: #666; display: flex; justify-content: space-between; }
+"""
+
+
+def bar_page(title: str, subtitle: str, rows_html: str, source: str, key_html: str = "") -> str:
+    e = html.escape
+    return (f"<html><head><meta charset='utf-8'><style>{BAR_CSS}</style></head><body><div id='root'>"
+            f"<h1>{e(title)}</h1><div class='sub'>{e(subtitle)}</div>"
+            f"<div class='chart'>{rows_html}{key_html}</div>"
+            f"<div class='foot'><span>数据来源：{e(source)}</span><span>{DISCLAIMER}</span></div>"
+            "</div></body></html>")
+
+
+def rank_7d_image(d: Daily, out_dir):
+    """近 7 天涨跌排行：零线在中间，涨往右（绿）、跌往左（红），按涨幅从高到低。"""
+    vals = {s: d.v("price", s, "chg_7d") for s in COINS}
+    vals = {s: v for s, v in vals.items() if v is not None}
+    if len(vals) < 2:
+        return None
+    m = max(abs(v) for v in vals.values()) or 1
+    rows = []
+    for s, v in sorted(vals.items(), key=lambda kv: -kv[1]):
+        w = abs(v) / m * 48  # 每边最多 48%
+        left = 50 if v >= 0 else 50 - w
+        cls = "up" if v >= 0 else "down"
+        rows.append(f"<div class='row'><div class='name'>{s}</div><div class='track'>"
+                    f"<div class='bar {cls}' style='left:{left:.2f}%;width:{w:.2f}%'></div>"
+                    f"<div class='zero' style='left:50%'></div></div>"
+                    f"<div class='val {cls}c'>{fmt_pct(v)}</div></div>")
+    ref = next((d.ref_date("price", s, "chg_7d") for s in vals if d.ref_date("price", s, "chg_7d")), d.day)
+    best, worst = max(vals, key=vals.get), min(vals, key=vals.get)
+    title = f"近 7 天：{best} 最强，{worst} 最弱"
+    return render_png(bar_page(title, f"主流币 7 天涨跌幅，按涨幅排序｜数据时间 {ref}（UTC）", "".join(rows), "CoinGecko"),
+                      out_dir / "rank_7d.png")
+
+
+def fdv_image(d: Daily, out_dir):
+    """流通市值 ÷ FDV = 已经放出来的比例。深蓝 = 已流通，灰 = 还没放出来。"""
+    share = {}
+    for s in COINS:
+        mc, fdv = d.v("price", s, "market_cap"), d.v("price", s, "fdv")
+        if mc and fdv:
+            share[s] = min(mc / fdv, 1.0)
+    if len(share) < 2:
+        return None
+    rows = []
+    for s, r in sorted(share.items(), key=lambda kv: kv[1]):
+        rest = 1 - r
+        rows.append(f"<div class='row'><div class='name'>{s}</div><div class='track'>"
+                    f"<div class='bar done' style='left:0;width:{r * 100:.2f}%'></div>"
+                    + (f"<div class='bar left' style='left:{r * 100:.2f}%;width:{rest * 100:.2f}%'></div>" if rest > 0.005 else "")
+                    + f"</div><div class='val'>还没放出 {rest * 100:.0f}%</div></div>")
+    key = "<div class='key'><span style='background:#1F4E78'></span>已流通<span style='background:#F2F2F2;border:1px solid #d4d4d4'></span>还没放出来</div>"
+    most = min(share, key=share.get)
+    title = f"{most} 还有 {(1 - share[most]) * 100:.0f}% 的币没放出来"
+    ref = d.ref_date("price", most, "fdv") or d.day
+    return render_png(bar_page(title, f"流通市值 ÷ 完全稀释估值（FDV）｜数据时间 {ref}（UTC）", "".join(rows),
+                                "CoinGecko（FDV 按当前总供应量算，不含 BTC 还没挖出来的部分）", key),
+                      out_dir / "fdv.png")
 
 
 def price_image(d: Daily, out_dir):
@@ -71,7 +157,8 @@ def unlock_image(d: Daily, out_dir):
                         col_widths=[220, 160, 260, 200, 260])
 
 
-MAKERS = {"price": price_image, "etf": etf_image, "unlock": unlock_image}
+MAKERS = {"price": price_image, "etf": etf_image, "unlock": unlock_image,
+          "rank_7d": rank_7d_image, "fdv": fdv_image}
 
 
 def main():

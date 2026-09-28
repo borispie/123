@@ -163,3 +163,33 @@ def test_todo_items_listed_once():
     parts = {"主贴": "如果【需补充：数据】高于预期\n【需补充：数据】", "短推": "重点：【需补充：一个宏观事件】", "别的": "【需补充：不算】"}
     assert todo_items(parts) == ["【需补充：数据】", "【需补充：一个宏观事件】"]
     assert todo_items({"主贴": "都齐了"}) == []
+
+
+def _daily_from(tmp_path, monkeypatch, rows):
+    import csv
+    import common
+    p = tmp_path / "2099-01-02.csv"
+    with open(p, "w", newline="", encoding="utf-8-sig") as fh:
+        w = csv.DictWriter(fh, fieldnames=fetch_daily.FIELDS); w.writeheader(); w.writerows(rows)
+    monkeypatch.setattr(common, "DATA", tmp_path)
+    return common.Daily("2099-01-02")
+
+
+def test_one_line_sources_and_auto_view(tmp_path, monkeypatch):
+    from make_post_pack import auto_view, source_names
+    r = fetch_daily.row
+    d = _daily_from(tmp_path, monkeypatch, [
+        r("price", "SOL", "chg_7d", 8.0, "%", "CoinGecko", "https://a"),
+        r("price", "HYPE", "chg_7d", -3.0, "%", "CoinGecko", "https://b"),
+        r("etf", "BTC", "etf_net_flow", 134.5, "USD m", "Farside（手填）", "https://c"),
+        r("defi", "ALL", "stablecoin_chg_7d", 0.4, "%", "DefiLlama", "https://d"),
+        r("macro", "us5y", "value", 5.03, "%", "FRED", "https://e"),
+        r("macro", "us5y", "chg_1w", 0.25, "pp", "FRED", "https://e")])
+    assert source_names(d, ["price", "etf", "defi"]) == "CoinGecko、Farside、DefiLlama"
+    mon = auto_view("周一数据", d, {"best_7d": "SOL", "worst_7d": "HYPE"})
+    assert "稳定币这周还在增加（+0.40%）" in mon and "净流入" in mon and "SOL" in mon and "如果" in mon
+    thu = auto_view("周四宏观", d, {})
+    assert thu.startswith("5 年期美债 5.03%，一周涨了 0.25 个百分点")
+    assert auto_view("周六统计小课", d, {}) is None
+    for t in (mon, thu):
+        assert not any(w in t for w in ("必涨", "必跌", "稳了"))
