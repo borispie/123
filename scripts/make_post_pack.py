@@ -4,12 +4,14 @@
     python scripts/make_post_pack.py --date 2026-09-28
     python scripts/make_post_pack.py --column 周二代币经济   # 不按星期，指定栏目
 
-输出 output/日期/发布包.md。数字只从 data/日期.csv 和 data/predictions.xlsx 来，
-没有的一律是【需补充：xxx】。最后会列出违反 CLAUDE.md 发帖规则的地方。
+输出 output/日期/发布包.md（自己看）和 发布包.json（post_to_x.py 读这个发推）。
+数字只从 data/日期.csv 和 data/predictions.xlsx 来，没有的一律是【需补充：xxx】。
+最后会列出违反 CLAUDE.md 发帖规则的地方。
 """
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import string
 from datetime import date, timedelta
@@ -17,7 +19,7 @@ from urllib.parse import quote
 
 import pandas as pd
 
-from common import (COINS, DEFILLAMA_PROTOCOLS, DISCLAIMER, FRED_SERIES, HOLDINGS, OUTPUT, TEMPLATES, Daily,
+from common import (COINS, DEFILLAMA_PROTOCOLS, DISCLAIMER, FRED_SERIES, HOLDINGS, OUTPUT, ROOT, TEMPLATES, Daily,
                     fmt_big, fmt_pct, fmt_price, fmt_signed, missing)
 
 COLUMNS = ["周一数据", "周二代币经济", "周三链上巨鲸", "周四宏观", "周五项目深度", "周六统计小课", "周日预测复盘"]
@@ -260,6 +262,26 @@ def intent(text: str) -> str:
     return "https://x.com/intent/post?text=" + quote(text)
 
 
+def pack_json(day: date, column: str, parts: dict[str, str], images: list, issues: list[str],
+              todo: list[str]) -> dict:
+    """发布包.json 的内容。图片路径相对仓库根目录，比如 output/2026-09-28/price.png。"""
+    def rel(p):
+        try:
+            return p.relative_to(ROOT).as_posix()
+        except ValueError:
+            return str(p)
+    return {
+        "date": day.isoformat(),
+        "column": column,
+        "main": parts.get("主贴", ""),
+        "reply": parts.get("回复", ""),
+        "short": parts.get("短推", ""),
+        "images": [rel(p) for p in images],
+        "checks": {"passed": not issues, "issues": issues},
+        "todo": todo,
+    }
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--date", default=date.today().isoformat())
@@ -289,6 +311,8 @@ def main():
     md += ["## 需补充", ""] + ([f"- [ ] {t}" for t in todo] or ["- 没有，数字都齐了"]) + [""]
     path = out_dir / "发布包.md"
     path.write_text("\n".join(md), encoding="utf-8")
+    pack = pack_json(day, column, parts, [out_dir / p for p in images], issues, todo)
+    (out_dir / "发布包.json").write_text(json.dumps(pack, ensure_ascii=False, indent=2), encoding="utf-8")
 
     print(f"{column} 发布包：{path}")
     for i in issues:

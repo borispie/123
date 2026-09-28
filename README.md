@@ -50,11 +50,20 @@ python3 portfolio/backtest/dca_backtest.py --help  # 看参数，再用 BTC-USD 
 1. `fetch_daily.py` 拉 BTC/ETH/SOL/BNB/HYPE 价格和 24h/7天/30天涨跌、ETF 净流入、未来 7 天解锁、
    DefiLlama（协议收入、稳定币、TVL）、FRED（美债收益率、利率）、Polymarket（你列的市场）→ `data/日期.csv`
 2. `make_table_image.py` 出 Excel 风格表格图 → `output/日期/*.png`
-3. `make_post_pack.py` 按当天栏目生成主贴、回复、短推、一键发帖链接，并检查发帖规则 → `output/日期/发布包.md`
+3. `make_post_pack.py` 按当天栏目生成主贴、回复、短推、一键发帖链接，并检查发帖规则 → `output/日期/发布包.md` 和 `发布包.json`
 4. 每天结算到期的预测（当天收盘要等美东晚上 8 点以后才有，所以一般第二天早上结掉）
 5. 周日额外：出复盘图
 
 拉不到的数据不会编，会写【需补充：xxx】，发布包最后会列出来。
+发布包有两份：`发布包.md` 给自己看，`发布包.json` 给发推脚本读。
+
+默认不发推。想让它最后自动发（主贴带图 + 回复 + 短推）：
+
+```bash
+./daily.sh --post --view "如果 ETF 连续 3 天净流出，那么我会把上涨概率调低到 40%"
+```
+
+有【需补充】或者规则检查没过，就不会发，会打印原因。详见下面「自动发推」。
 
 价格类预测按 UTC 日线收盘结算：BTC/ETH/SOL/BNB 用 Yahoo Finance，HYPE 用 CoinGecko。想让周日复盘当天就能出结果，预测的结算日就定在周六。
 
@@ -71,6 +80,65 @@ python3 portfolio/backtest/dca_backtest.py --help  # 看参数，再用 BTC-USD 
 | 非价格类预测到期 | 人工结算 | `python scripts/predictions.py settle --id 3 --result 1 --source 链接` |
 | 发帖 48 小时后 | 记帖子数据 | `python scripts/dashboard.py add --column 周一数据 --views 5200 --likes 80 --reposts 12 --replies 9 --follows 6` |
 | 每周 | 看哪个栏目效果好 | `python scripts/dashboard.py report --days 30` |
+
+## 自动发推（X API）
+
+### 准备（只做一次）
+
+1. [developer.x.com](https://developer.x.com) 里你的 App → User authentication settings → App permissions 选 **Read and write**
+2. Keys and tokens 页面：拿 API Key 和 Secret；**改完权限以后**再生成 Access Token 和 Secret（改权限之前生成的 token 是只读的，发不了）
+3. 开发者后台要有余额（credits），余额为 0 也发不了
+4. 把 4 个 key 加进 `~/.zshrc`，重开终端：
+
+```bash
+export X_API_KEY=...
+export X_API_SECRET=...
+export X_ACCESS_TOKEN=...
+export X_ACCESS_TOKEN_SECRET=...
+```
+
+key 只放环境变量，不要写进仓库。脚本不会打印 key，也不会写进发布包和记录表。
+在云端跑的话，把这 4 个填进环境设置的 Environment variables，Network access 白名单加 `api.x.com`。
+
+### 用法
+
+```bash
+python scripts/post_to_x.py                                  # 预览今天的：要发什么、多少字符、带哪几张图、能不能发
+python scripts/post_to_x.py --view "如果……那么……"            # 预览，把主贴里「我的看法：【需补充…】」那一行换成这句
+python scripts/post_to_x.py --part short --send              # 真发：只发短推
+python scripts/post_to_x.py --part main --send --view "……"   # 真发：主贴（带图）+ 挂在下面的回复
+python scripts/post_to_x.py --part all --send --view "……"    # 真发：全部
+python scripts/post_to_x.py --date 2026-09-27 ...            # 指定日期
+```
+
+**不加 `--send` 只预览，不会发。**
+
+### 发之前的检查（任何一条不过就不发，打印原因）
+
+1. 要发的部分里还有【需补充】（`--view` 能填掉「我的看法」那一行，别的要改模板或补数据后重跑 make_post_pack.py）
+2. 规则检查没全部通过（禁用词、话题标签超过 2 个、持有的币没标「（我持有）」、主贴缺「不构成投资建议」、主贴有链接、hook 没数字也没问题、短推超过 280）
+3. 主贴的图超过 4 张，或者图片文件不存在
+
+只发短推时，只检查短推。
+
+### 发的时候
+
+- 主贴带上 `output/日期/` 里的 PNG（最多 4 张，就是 `发布包.json` 里的 `images`）。不想带的图，删掉再重跑 make_post_pack.py
+- 回复挂在主贴下面，来源链接只放回复里；短推单独发
+- 你有 Premium，主贴先整条发；X 说太长，就按空行自动拆成串推，每条不超过 280（中文算 2），第一条带图，回复挂在串推最后一条下面
+- 网络断了或 X 服务器出错，自动重试 1 次
+- 发成功的记在 `data/posted.csv`（date, part, tweet_id, url, posted_at）。同一天同一部分已经发过就跳过，不会重发。
+  串推后面几条记成 `main_2`、`main_3`……。真想重发，删掉那一行
+- 主贴发了、回复没发成：再跑一次只补回复，挂在已经发的主贴下面
+
+### 报错
+
+| 报错 | 原因 / 怎么办 |
+|---|---|
+| 401 / 403 | App 权限不是 Read and write；改完权限没重新生成 Access Token；余额为 0；key 填错 |
+| 内容重复 | 可能上一次其实发成功了。去主页看一眼，发了就把 tweet_id 手动记进 `data/posted.csv` |
+| 429 | 限流，过 15 分钟再试 |
+| 缺环境变量 | 上面第 4 步，重开终端 |
 
 ## 栏目
 
