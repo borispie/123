@@ -74,8 +74,9 @@ ENROLLED = re.compile(r"currently (enrolled|pursuing)|returning to school|must b
 YEARS = re.compile(r"(\d{1,2})\s*\+?\s*(?:-|–|to)?\s*(\d{1,2})?\+?\s*years?", re.I)
 NEW_GRAD = re.compile(r"new grad|recent grad|early career|entry[- ]level|graduates|0\s*[-–]\s*[12]\s*years|"
                       r"no experience required|university students", re.I)
-CRYPTO = re.compile(r"crypto|blockchain|web3|defi|digital asset|exchange|trading|token", re.I)
-SKILLS = re.compile(r"\bsql\b|\bpython\b|\br\b(?! ?&)|statistic|a/b|experiment|excel|forecast|"
+CRYPTO = re.compile(r"crypto|blockchain|web3|\bdefi\b|digital asset|stablecoin|on-?chain|bitcoin", re.I)
+TRADING = re.compile(r"quant|trading|trader|capital|point72|akuna|jump", re.I)  # 只看标题和公司名
+SKILLS = re.compile(r"\bsql\b|\bpython\b|\br\b(?! ?&)|statistic|a/b|experiment|\bexcel\b|forecast|"
                     r"regression|probabilit", re.I)
 
 
@@ -224,11 +225,18 @@ def min_years(text: str) -> int | None:
     return min(found) if found else None
 
 
+def salary_floor(salary: str) -> int | None:
+    """「$120k - $187k」→ 120（单位 k）。"""
+    m = re.search(r"\$(\d+)k", salary)
+    return int(m.group(1)) if m else None
+
+
 def needs_grad_degree(text: str) -> bool:
     for sent in re.split(r"[\n.;]", text):
-        if re.search(r"master|ph\.?d|\bms\b|\bm\.s\.", sent, re.I) and \
-                re.search(r"pursuing|required|requirement|minimum|must", sent, re.I) and \
-                not re.search(r"bachelor|\bbs\b|\bb\.s\.|\bba\b|undergrad|or equivalent", sent, re.I):
+        if re.search(r"master|ph\.?d|\bms\b|\bmsc\b|\bm\.s\.", sent, re.I) and \
+                re.search(r"pursuing|required|requirement|minimum|must|degree in", sent, re.I) and \
+                not re.search(r"bachelor|\bbs\b|\bb\.s\.|\bba\b|undergrad|equivalent (practical |work )?experience",
+                              sent, re.I):
             return True
     return False
 
@@ -263,7 +271,14 @@ def score(job: Job) -> Job:
         job.reasons.append("招应届生")
     if CRYPTO.search(t + " " + job.company + " " + text[:3000]):
         job.score += 2
-        job.reasons.append("币圈 / 交易相关")
+        job.reasons.append("币圈相关")
+    elif TRADING.search(t + " " + job.company):
+        job.score += 1
+        job.reasons.append("量化 / 交易")
+    low = salary_floor(job.salary)
+    if low and low >= 150:
+        job.score -= 2
+        job.reasons.append(f"起薪 ${low}k，一般要多年经验")
     hits = {m.group(0).lower() for m in SKILLS.finditer(text)}
     if hits:
         job.score += min(len(hits), 4)

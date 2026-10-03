@@ -57,3 +57,11 @@ def test_score_tiers():
     assert _job("Data Analyst", text="We are unable to sponsor visas").tier == "no"
     assert _job("Data Analyst", loc="London, UK").tier == "no"
     assert _job("Data Analyst", loc="Chicago, IL").tier != "no"
+
+
+def test_scoring_edge_cases():
+    assert "用到：excel" not in "；".join(_job("Data Analyst", text="Excellent communication").reasons)
+    assert "币圈相关" not in _job("Data Analyst", text="LLM token usage and exchange of ideas").reasons
+    assert needs_grad_degree("Pursuing MS or PhD in Computer Science, Statistics, or equivalent field")
+    rich = score(Job("Data Scientist", "Co", "Remote (US)", "u", "t", salary="$200k - $250k", text="SQL"))
+    assert any("起薪 $200k" in r for r in rich.reasons)
