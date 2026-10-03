@@ -52,7 +52,9 @@ TITLE_BAD = re.compile(
 # 交易所（重点公司）放宽：运营、风控、研究、上币、市场这类分析岗也算
 TITLE_OK_FOCUS = re.compile(TITLE_OK.pattern + r"|operations|research|listing|market|product|intern|associate|"
                             r"specialist|strategy|growth|\bbd\b|business development", re.I)
-TITLE_BAD_FOCUS = re.compile(TITLE_BAD.pattern.replace("|compliance", "").replace("|security", ""), re.I)
+TITLE_BAD_FOCUS = re.compile(TITLE_BAD.pattern.replace("|compliance", "").replace("|security", "") +
+                             r"|ios|android|architect|swag|talent acquisition|\bhr\b|support|accounting|tax|"
+                             r"real estate|workplace|learning & development|policy", re.I)
 # 没有公开岗位接口的交易所，结果里列出官网让你自己看
 MANUAL_EXCHANGES = [
     ("Bitget", "https://www.bitget.com/careers", "有应届生项目（Graduate Program），看有没有 2027 届"),
@@ -69,7 +71,15 @@ LOC_BAD = re.compile(
     r"spain|amsterdam|netherlands|dublin|ireland|india|bangalore|bengaluru|hyderabad|delhi|"
     r"israel|tel aviv|toronto|canada|montreal|vancouver|mexico|brazil|argentina|australia|"
     r"sydney|japan|tokyo|korea|seoul|poland|warsaw|sweden|stockholm|switzerland|zurich|dubai|"
-    r"abu dhabi|vietnam|hanoi|taipei|taiwan|europe|emea|latam", re.I)
+    r"abu dhabi|vietnam|hanoi|taipei|taiwan|europe|emea|latam|luxembourg|bulgaria|sofia|istanbul|"
+    r"t[üu]rkiye|turkey|jordan|amman|middle east|pakistan|islamabad|philippines|manila|georgia|"
+    r"tbilisi|nigeria|africa|kazakhstan|ukraine|kyiv|lithuania|vilnius|cyprus|malta|italy|portugal", re.I)
+# 要会别的语言的岗位（中文、英文以外）
+OTHER_LANG = re.compile(r"(arabic|thai|vietnamese|korean|japanese|russian|turkish|spanish|portuguese|"
+                        r"french|german|italian|indonesian|bahasa|urdu|hindi|polish)\b[^\n]{0,15}"
+                        r"(speaker|required|speaking|native|fluent)|\b(PK|TR|LATAM|VN|ID|KR|JP)\b", re.I)
+# 应届生项目的标题前缀，去掉再看后面的岗位名
+PROGRAM_PREFIX = re.compile(r"^(binance accelerator program(me)?|bap|pioneer talent program)\s*[-–:]\s*", re.I)
 LOC_OK = re.compile(
     r"united states|\busa?\b|remote \(us\)|anywhere|global|asia|singapore|hong kong|china|"
     r"shanghai|beijing|shenzhen|new york|san francisco|chicago|boston|seattle|austin|"
@@ -272,7 +282,8 @@ def needs_grad_degree(text: str) -> bool:
 
 def title_ok(job: Job) -> bool:
     if job.focus:
-        return bool(TITLE_OK_FOCUS.search(job.title)) and not TITLE_BAD_FOCUS.search(job.title)
+        t = PROGRAM_PREFIX.sub("", job.title)
+        return bool(TITLE_OK_FOCUS.search(t)) and not TITLE_BAD_FOCUS.search(t)
     return bool(TITLE_OK.search(job.title)) and not TITLE_BAD.search(job.title)
 
 
@@ -283,6 +294,8 @@ def score(job: Job) -> Job:
         return job
     if LOC_BAD.search(loc) and not (LOC_OK.search(loc) or US_STATE.search(loc)):
         job.blockers.append(f"地点 {loc}，没有工作签证")
+    if OTHER_LANG.search(t):
+        job.blockers.append("要会别的语言")
     if CITIZEN.search(text):
         job.blockers.append("要美国公民 / 绿卡")
     if NO_SPONSOR.search(text):
@@ -380,6 +393,24 @@ def render(jobs: list[Job], day: str, errors: list[str], total: int) -> str:
     return "\n".join(out)
 
 
+def dedupe(jobs: list[Job]) -> list[Job]:
+    """同一家公司同名同地点的岗位只留一个，优先留公司自己的招聘页（详情更全）。"""
+    best: dict[tuple, Job] = {}
+    for j in jobs:
+        k = (j.company.lower(), re.sub(r"\W+", " ", j.title.lower()).strip(), j.location.lower().split("(")[0].strip())
+        if k not in best or (best[k].source == "aidevboard" and j.source != "aidevboard"):
+            best[k] = j
+    # aidevboard 上的地点常常只写 Asia，公司页写 Asia (Remote)：再按公司+标题去一次
+    out: dict[tuple, Job] = {}
+    for j in best.values():
+        k = (j.company.lower(), re.sub(r"\W+", " ", j.title.lower()).strip())
+        if j.source == "aidevboard" and any(k == (o.company.lower(), re.sub(r"\W+", " ", o.title.lower()).strip())
+                                            and o.source != "aidevboard" for o in best.values()):
+            continue
+        out[(k, j.location.lower(), j.url)] = j
+    return list(out.values())
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--all", action="store_true", help="之前看过的也列出来")
@@ -392,7 +423,7 @@ def main() -> None:
     jobs = fetch_board(args.pages) + fetch_companies(errors)
     total = len(jobs)
     seen = set() if args.all else load_seen()
-    fresh = [j for j in {j.key: j for j in jobs}.values() if j.key not in seen]
+    fresh = [j for j in dedupe(jobs) if j.key not in seen]
 
     focus_names = {c["company"].lower() for c in load_companies() if c.get("focus") == "1"}
     for j in fresh:

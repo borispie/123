@@ -72,3 +72,18 @@ def test_exchange_titles_are_wider():
     assert score(ops).tier != "skip"
     assert score(Job("Listing Operations Specialist", "Acme", "Asia", "u", "t", text="SQL")).tier == "skip"
     assert score(Job("Senior Compliance Manager", "OKX", "Asia", "u", "t", focus=True)).tier == "skip"
+
+
+def test_dedupe_prefers_company_page():
+    from job_search import dedupe
+    a = Job("Binance Accelerator Program - Data Analyst", "Binance", "Asia", "https://aidevboard.com/x", "aidevboard")
+    b = Job("Binance Accelerator Program - Data Analyst", "Binance", "Asia (Remote)", "https://jobs.lever.co/x", "lever")
+    assert [j.url for j in dedupe([a, b])] == ["https://jobs.lever.co/x"]
+
+
+def test_exchange_filters():
+    assert score(Job("Binance Accelerator Program - iOS Architect", "Binance", "Asia", "u", "t", focus=True)).tier == "skip"
+    assert score(Job("Binance Accelerator Program - Data Analyst", "Binance", "Asia", "u", "t", focus=True,
+                     text="SQL")).tier != "skip"
+    assert score(Job("Case Analyst (Arabic speaker)", "Binance", "Asia", "u", "t", focus=True)).tier == "no"
+    assert score(Job("Compliance Analyst", "OKX", "Istanbul, Türkiye", "u", "t", focus=True)).tier == "no"
