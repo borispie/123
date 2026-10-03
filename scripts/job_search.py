@@ -3,6 +3,7 @@
 python scripts/job_search.py              # 搜 + 出 job-search/岗位_日期.md
 python scripts/job_search.py --all        # 连之前看过的也列出来
 python scripts/job_search.py --pages 5    # aidevboard 每个关键词最多翻 5 页（默认 15）
+python scripts/job_search.py --days 1     # 只看最近 1 天发的（云端每天定时跑用这个，不用记「看过的」）
 
 来源：
 1. aidevboard.com（按关键词搜，再打开详情页看要求）
@@ -20,7 +21,7 @@ import re
 import sys
 import time
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 from urllib.parse import urlencode
 
 from common import DATA, ROOT, get
@@ -120,6 +121,7 @@ class Job:
     reasons: list[str] = field(default_factory=list)
     blockers: list[str] = field(default_factory=list)
     focus: bool = False  # 重点公司（交易所）
+    posted: datetime | None = None  # 发布时间（UTC），拿不到就是 None
 
     @property
     def key(self) -> str:
@@ -131,6 +133,31 @@ def _text(fragment: str) -> list[str]:
     t = re.sub(r"<[^>]+>", "\n", t)
     t = html.unescape(t)
     return [ln.strip() for ln in t.split("\n") if ln.strip() and ln.strip() != "·"]
+
+
+def parse_ago(s: str, now: datetime | None = None) -> datetime | None:
+    """「3 days ago」「today」「1 month ago」→ 大概的发布时间。"""
+    now = now or datetime.now(timezone.utc)
+    s = s.lower().strip()
+    if s in ("today", "just now"):
+        return now
+    if s == "yesterday":
+        return now - timedelta(days=1)
+    m = re.match(r"(\d+|an?|one)\s+(minute|hour|day|week|month|year)s?\s+ago", s)
+    if not m:
+        return None
+    n = 1 if m.group(1) in ("a", "an", "one") else int(m.group(1))
+    days = {"minute": 1 / 1440, "hour": 1 / 24, "day": 1, "week": 7, "month": 30, "year": 365}[m.group(2)]
+    return now - timedelta(days=n * days)
+
+
+def parse_iso(s: str | None) -> datetime | None:
+    if not s:
+        return None
+    try:
+        return datetime.fromisoformat(s.replace("Z", "+00:00")).astimezone(timezone.utc)
+    except ValueError:
+        return None
 
 
 # ---------- aidevboard ----------
@@ -149,7 +176,8 @@ def parse_board_list(page: str) -> list[Job]:
         if len(lines) < 3:
             continue
         salary = lines[3] if len(lines) > 3 and "$" in lines[3] else ""
-        jobs.append(Job(lines[0], lines[1], lines[2], BOARD + url, "aidevboard", salary))
+        posted = next((parse_ago(x) for x in reversed(lines) if parse_ago(x)), None)
+        jobs.append(Job(lines[0], lines[1], lines[2], BOARD + url, "aidevboard", salary, posted=posted))
     return jobs
 
 
@@ -191,7 +219,8 @@ def fetch_board(pages: int) -> list[Job]:
 def parse_greenhouse(data: dict, company: str) -> list[Job]:
     return [Job(j.get("title", ""), company, (j.get("location") or {}).get("name", ""),
                 j.get("absolute_url", ""), "greenhouse",
-                text="\n".join(_text(html.unescape(j.get("content", "")))))
+                text="\n".join(_text(html.unescape(j.get("content", "")))),
+                posted=parse_iso(j.get("first_published") or j.get("updated_at")))
             for j in data.get("jobs", [])]
 
 
@@ -205,7 +234,9 @@ def parse_lever(data: list, company: str) -> list[Job]:
         loc = cat.get("location", "")
         if j.get("workplaceType") == "remote" and "remote" not in loc.lower():
             loc = f"{loc} (Remote)".strip()
-        jobs.append(Job(j.get("text", ""), company, loc, j.get("hostedUrl", ""), "lever", text=text))
+        ms = j.get("createdAt")
+        posted = datetime.fromtimestamp(ms / 1000, timezone.utc) if ms else None
+        jobs.append(Job(j.get("text", ""), company, loc, j.get("hostedUrl", ""), "lever", text=text, posted=posted))
     return jobs
 
 
@@ -217,7 +248,7 @@ def parse_ashby(data: dict, company: str) -> list[Job]:
             loc = f"{loc} (Remote)".strip()
         comp = (j.get("compensation") or {}).get("compensationTierSummary", "") or ""
         jobs.append(Job(j.get("title", ""), company, loc, j.get("jobUrl", ""), "ashby",
-                        salary=comp, text=j.get("descriptionPlain", "")))
+                        salary=comp, text=j.get("descriptionPlain", ""), posted=parse_iso(j.get("publishedAt"))))
     return jobs
 
 
@@ -251,6 +282,11 @@ def fetch_companies(errors: list[str]) -> list[Job]:
 
 
 # ---------- 打分 ----------
+GRAD_TEXT = "2027 年 5 月"   # 我的毕业时间
+GRAD_YEAR_N = 2027
+GRAD_YEAR = re.compile(rf"(new grad|graduat\w*|class of|campus)[^\n]{{0,40}}{GRAD_YEAR_N}|"
+                       rf"{GRAD_YEAR_N}[^\n]{{0,25}}(new grad|graduate|grads)", re.I)
+
 def min_years(text: str) -> int | None:
     """要求的最少工作年限。只看提到 experience 的句子，取最小的那个。"""
     found = []
@@ -312,8 +348,10 @@ def score(job: Job) -> Job:
         job.score += 1
         job.reasons.append(f"只要 {yrs} 年经验")
     if ENROLLED.search(text):
-        job.score -= 2
-        job.reasons.append("要求在读，你 12 月毕业，先确认")
+        job.reasons.append(f"要求在读（你 {GRAD_TEXT} 毕业，现在在读，可以投；看清实习时间跟上课冲不冲突）")
+    if GRAD_YEAR.search(t + "\n" + text):
+        job.score += 2
+        job.reasons.append(f"招 {GRAD_YEAR_N} 届")
     if NEW_GRAD.search(text) or NEW_GRAD.search(t):
         job.score += 3
         job.reasons.append("招应届生")
@@ -377,10 +415,11 @@ def render(jobs: list[Job], day: str, errors: list[str], total: int) -> str:
         if not group:
             out += ["（没有）", ""]
             continue
-        out += ["| 分 | 岗位 | 公司 | 地点 | 薪资 | 为什么 |", "|---|---|---|---|---|---|"]
+        out += ["| 分 | 岗位 | 公司 | 地点 | 薪资 | 发布 | 为什么 |", "|---|---|---|---|---|---|---|"]
         for j in group:
             out.append(f"| {j.score} | [{_cell(j.title)}]({j.url}) | {_cell(j.company)} | {_cell(j.location)} "
-                       f"| {_cell(j.salary)} | {_cell('；'.join(j.reasons))} |")
+                       f"| {_cell(j.salary)} | {j.posted.date().isoformat() if j.posted else ''} "
+                       f"| {_cell('；'.join(j.reasons))} |")
         out.append("")
     if no:
         out += ["## 不合适（帮你排掉的）", ""]
@@ -415,6 +454,7 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--all", action="store_true", help="之前看过的也列出来")
     ap.add_argument("--pages", type=int, default=15, help="aidevboard 每个关键词最多翻几页")
+    ap.add_argument("--days", type=float, default=None, help="只看最近几天发的岗位（拿不到发布时间的不算）")
     args = ap.parse_args()
     day = date.today().isoformat()
     OUT.mkdir(exist_ok=True)
@@ -424,6 +464,9 @@ def main() -> None:
     total = len(jobs)
     seen = set() if args.all else load_seen()
     fresh = [j for j in dedupe(jobs) if j.key not in seen]
+    if args.days:
+        cutoff = datetime.now(timezone.utc) - timedelta(days=args.days)
+        fresh = [j for j in fresh if j.posted and j.posted >= cutoff]
 
     focus_names = {c["company"].lower() for c in load_companies() if c.get("focus") == "1"}
     for j in fresh:

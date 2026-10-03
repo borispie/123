@@ -87,3 +87,21 @@ def test_exchange_filters():
                      text="SQL")).tier != "skip"
     assert score(Job("Case Analyst (Arabic speaker)", "Binance", "Asia", "u", "t", focus=True)).tier == "no"
     assert score(Job("Compliance Analyst", "OKX", "Istanbul, Türkiye", "u", "t", focus=True)).tier == "no"
+
+
+def test_posted_dates():
+    from datetime import datetime, timezone
+    from job_search import parse_ago, parse_iso
+    now = datetime(2026, 10, 3, tzinfo=timezone.utc)
+    assert parse_ago("3 days ago", now).day == 30
+    assert parse_ago("today", now) == now
+    assert parse_ago("2 hours ago", now).day == 2
+    assert parse_ago("Remote") is None
+    assert parse_iso("2026-09-08T20:22:45-04:00").hour == 0
+    lv = parse_lever([{"text": "Analyst", "createdAt": 1759449600000}], "L")
+    assert lv[0].posted.year == 2025
+
+
+def test_grad_year_bonus():
+    j = _job("Data Analyst", text="New Grad 2027 program. SQL")
+    assert "招 2027 届" in j.reasons
