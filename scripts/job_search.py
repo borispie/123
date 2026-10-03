@@ -82,7 +82,7 @@ OTHER_LANG = re.compile(r"(arabic|thai|vietnamese|korean|japanese|russian|turkis
 # 应届生项目的标题前缀，去掉再看后面的岗位名
 PROGRAM_PREFIX = re.compile(r"^(binance accelerator program(me)?|bap|pioneer talent program)\s*[-–:]\s*", re.I)
 LOC_OK = re.compile(
-    r"united states|\busa?\b|remote \(us\)|anywhere|global|asia|singapore|hong kong|china|"
+    r"united states|\busa?\b|remote \(us\)|anywhere|global|asia|singapore|china|"
     r"shanghai|beijing|shenzhen|new york|san francisco|chicago|boston|seattle|austin|"
     r"pennsylvania|philadelphia|pittsburgh", re.I)
 US_STATE = re.compile(  # 「Chicago, IL」这种，大小写敏感，免得把「London, UK」算进来
@@ -328,7 +328,9 @@ def score(job: Job) -> Job:
     if not title_ok(job):
         job.tier = "skip"
         return job
-    if LOC_BAD.search(loc) and not (LOC_OK.search(loc) or US_STATE.search(loc)):
+    if re.search(r"hong kong", loc, re.I) and not re.search(r"remote", loc, re.I):
+        job.blockers.append("香港线下，你不能在香港工作")
+    elif LOC_BAD.search(loc) and not (LOC_OK.search(loc) or US_STATE.search(loc)):
         job.blockers.append(f"地点 {loc}，没有工作签证")
     if OTHER_LANG.search(t):
         job.blockers.append("要会别的语言")

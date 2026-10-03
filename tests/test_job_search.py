@@ -105,3 +105,8 @@ def test_posted_dates():
 def test_grad_year_bonus():
     j = _job("Data Analyst", text="New Grad 2027 program. SQL")
     assert "招 2027 届" in j.reasons
+
+
+def test_hong_kong_onsite_blocked():
+    assert score(Job("Quantitative Trader", "OKX", "Hong Kong, Hong Kong SAR", "u", "t", focus=True)).tier == "no"
+    assert score(Job("Data Analyst", "Binance", "Hong Kong (Remote)", "u", "t", focus=True, text="SQL")).tier != "no"
