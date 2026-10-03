@@ -8,3 +8,6 @@ __pycache__/
 # 每天生成的图和发布包不进 git（仓库会越来越大）
 output/*
 !output/.gitkeep
+
+# 求职材料（含手机号，仓库是公开的，不上传）
+job-search/
