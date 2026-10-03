@@ -65,3 +65,10 @@ def test_scoring_edge_cases():
     assert needs_grad_degree("Pursuing MS or PhD in Computer Science, Statistics, or equivalent field")
     rich = score(Job("Data Scientist", "Co", "Remote (US)", "u", "t", salary="$200k - $250k", text="SQL"))
     assert any("起薪 $200k" in r for r in rich.reasons)
+
+
+def test_exchange_titles_are_wider():
+    ops = Job("Listing Operations Specialist", "Binance", "Asia", "u", "t", focus=True, text="SQL")
+    assert score(ops).tier != "skip"
+    assert score(Job("Listing Operations Specialist", "Acme", "Asia", "u", "t", text="SQL")).tier == "skip"
+    assert score(Job("Senior Compliance Manager", "OKX", "Asia", "u", "t", focus=True)).tier == "skip"

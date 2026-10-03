@@ -36,6 +36,9 @@ BOARD_QUERIES = [
     {"q": "blockchain"}, {"q": "graduate"}, {"q": "intern"}, {"q": "evaluation"},
 ]
 
+# aidevboard 上有公司页的交易所（公司页列出这家全部岗位）
+BOARD_COMPANIES = ["binance", "okx", "coinbase", "gemini", "robinhood", "ripple"]
+
 # ---------- 标题筛选 ----------
 TITLE_OK = re.compile(
     r"analyst|analytics|data scien|quant|research associate|risk|insights|business intelligence|"
@@ -45,6 +48,19 @@ TITLE_BAD = re.compile(
     r"senior|\bsr\b|staff|principal|\blead\b|manager|director|head of|\bvp\b|vice president|"
     r"\bII\b|\bIII\b|\bIV\b|engineer|developer|sales|account exec|recruit|design|legal|counsel|"
     r"ph\.?d|security|soc analyst|it analyst|compliance", re.I)
+
+# 交易所（重点公司）放宽：运营、风控、研究、上币、市场这类分析岗也算
+TITLE_OK_FOCUS = re.compile(TITLE_OK.pattern + r"|operations|research|listing|market|product|intern|associate|"
+                            r"specialist|strategy|growth|\bbd\b|business development", re.I)
+TITLE_BAD_FOCUS = re.compile(TITLE_BAD.pattern.replace("|compliance", "").replace("|security", ""), re.I)
+# 没有公开岗位接口的交易所，结果里列出官网让你自己看
+MANUAL_EXCHANGES = [
+    ("Bitget", "https://www.bitget.com/careers", "有应届生项目（Graduate Program），看有没有 2027 届"),
+    ("KuCoin", "https://www.kucoin.com/careers", ""),
+    ("MEXC", "https://www.mexc.com/careers", "新加坡有数据分析实习（要在读）"),
+    ("Gate", "https://www.gate.com/careers", ""),
+    ("HTX", "https://www.htx.com/careers", ""),
+]
 
 # ---------- 地点 ----------
 # 没有工作签证的地方（美国 OPT 只能在美国用）
@@ -93,6 +109,7 @@ class Job:
     tier: str = ""
     reasons: list[str] = field(default_factory=list)
     blockers: list[str] = field(default_factory=list)
+    focus: bool = False  # 重点公司（交易所）
 
     @property
     def key(self) -> str:
@@ -149,6 +166,14 @@ def fetch_board(pages: int) -> list[Job]:
             if 'rel="next"' not in page:
                 break
             time.sleep(0.3)
+    for c in BOARD_COMPANIES:
+        try:
+            for j in parse_board_list(get(f"{BOARD}/company/{c}").text):
+                j.focus = True
+                found[j.key] = found.get(j.key, j)
+                found[j.key].focus = True
+        except RuntimeError as e:
+            print(f"aidevboard 公司页拉不到：{c} {e}", file=sys.stderr)
     return list(found.values())
 
 
@@ -188,6 +213,7 @@ def parse_ashby(data: dict, company: str) -> list[Job]:
 
 ATS = {
     "greenhouse": ("https://boards-api.greenhouse.io/v1/boards/{slug}/jobs?content=true", parse_greenhouse),
+    "greenhouse_eu": ("https://boards-api.eu.greenhouse.io/v1/boards/{slug}/jobs?content=true", parse_greenhouse),
     "lever": ("https://api.lever.co/v0/postings/{slug}?mode=json", parse_lever),
     "ashby": ("https://api.ashbyhq.com/posting-api/job-board/{slug}?includeCompensation=true", parse_ashby),
 }
@@ -205,7 +231,10 @@ def fetch_companies(errors: list[str]) -> list[Job]:
     for c in load_companies():
         url, parse = ATS[c["ats"]]
         try:
-            jobs += parse(get(url.format(slug=c["slug"]), tries=2).json(), c["company"])
+            got = parse(get(url.format(slug=c["slug"]), tries=2).json(), c["company"])
+            for j in got:
+                j.focus = c.get("focus") == "1"
+            jobs += got
         except (RuntimeError, ValueError) as e:
             errors.append(f"{c['company']}（{c['ats']}/{c['slug']}）：{str(e)[:120]}")
     return jobs
@@ -241,9 +270,15 @@ def needs_grad_degree(text: str) -> bool:
     return False
 
 
+def title_ok(job: Job) -> bool:
+    if job.focus:
+        return bool(TITLE_OK_FOCUS.search(job.title)) and not TITLE_BAD_FOCUS.search(job.title)
+    return bool(TITLE_OK.search(job.title)) and not TITLE_BAD.search(job.title)
+
+
 def score(job: Job) -> Job:
     t, text, loc = job.title, job.text, job.location
-    if not TITLE_OK.search(t) or TITLE_BAD.search(t):
+    if not title_ok(job):
         job.tier = "skip"
         return job
     if LOC_BAD.search(loc) and not (LOC_OK.search(loc) or US_STATE.search(loc)):
@@ -316,14 +351,15 @@ def _cell(s: str) -> str:
 
 
 def render(jobs: list[Job], day: str, errors: list[str], total: int) -> str:
-    top = sorted([j for j in jobs if j.tier == "top"], key=lambda j: -j.score)
-    maybe = sorted([j for j in jobs if j.tier == "maybe"], key=lambda j: -j.score)
+    ex = sorted([j for j in jobs if j.focus and j.tier in ("top", "maybe")], key=lambda j: (j.company, -j.score))
+    top = sorted([j for j in jobs if j.tier == "top" and not j.focus], key=lambda j: -j.score)
+    maybe = sorted([j for j in jobs if j.tier == "maybe" and not j.focus], key=lambda j: -j.score)
     no = [j for j in jobs if j.tier == "no"]
     out = [f"# 岗位 {day}", "",
-           f"一共扫了 {total} 个岗位，标题对口的新岗位 {len(top) + len(maybe) + len(no)} 个："
-           f"推荐 {len(top)}、可以试 {len(maybe)}、不合适 {len(no)}。",
+           f"一共扫了 {total} 个岗位，标题对口的新岗位 {len(ex) + len(top) + len(maybe) + len(no)} 个："
+           f"交易所 {len(ex)}、推荐 {len(top)}、可以试 {len(maybe)}、不合适 {len(no)}。",
            "投之前点开再看一遍要求。投了就在 `投递清单.md` 里记一下。", ""]
-    for name, group in (("推荐投", top), ("可以试", maybe)):
+    for name, group in (("交易所（重点）", ex), ("推荐投", top), ("可以试", maybe)):
         out += [f"## {name}", ""]
         if not group:
             out += ["（没有）", ""]
@@ -337,6 +373,8 @@ def render(jobs: list[Job], day: str, errors: list[str], total: int) -> str:
         out += ["## 不合适（帮你排掉的）", ""]
         out += [f"- {j.title} · {j.company}：{'；'.join(j.blockers)}" for j in no]
         out.append("")
+    out += ["## 这些交易所没有公开接口，自己去官网看", ""]
+    out += [f"- [{n}]({u})" + (f"：{note}" if note else "") for n, u, note in MANUAL_EXCHANGES] + [""]
     if errors:
         out += ["## 没拉到的公司", ""] + [f"- {e}" for e in errors] + [""]
     return "\n".join(out)
@@ -356,8 +394,10 @@ def main() -> None:
     seen = set() if args.all else load_seen()
     fresh = [j for j in {j.key: j for j in jobs}.values() if j.key not in seen]
 
+    focus_names = {c["company"].lower() for c in load_companies() if c.get("focus") == "1"}
     for j in fresh:
-        j.tier = "" if TITLE_OK.search(j.title) and not TITLE_BAD.search(j.title) else "skip"
+        j.focus = j.focus or j.company.lower() in focus_names
+        j.tier = "" if title_ok(j) else "skip"
     for j in fresh:  # 只给标题对口的 aidevboard 岗位开详情页
         if j.tier != "skip" and j.source == "aidevboard" and not j.text:
             try:
