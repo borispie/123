@@ -149,6 +149,22 @@ python scripts/post_to_x.py --date 2026-09-27 ...            # 指定日期
 周一数据 / 周二代币经济 / 周三链上巨鲸 / 周四宏观 / 周五项目深度 / 周六统计小课 / 周日预测复盘。
 模板在 `templates/`，改模板就能改帖子格式。
 
+## 小红书：量化面试概率题（副业）
+
+完整计划（为什么选这个、怎么定价、30 天日程、红线）见 [`xhs/计划.md`](xhs/计划.md)。
+
+```bash
+python scripts/make_xhs_notes.py --start 2026-10-05          # 出第 1–14 篇：每篇 5 张 3:4 图 + 标题正文 → output/xhs/D01/…
+python scripts/make_xhs_notes.py --days 15-30 --start 2026-10-05
+python scripts/make_xhs_notes.py --shop                       # 店铺开了以后：正文最后加一句引导
+python scripts/build_quant_pack.py --handle 你的小红书号        # 打包要卖的产品 → output/products/（PDF、题库、AI 陪练、验证代码、zip、商品主图）
+```
+
+- 题目、答案、模拟代码都在 `products/quant_interview/questions.py`。改完跑 `python -m pytest tests/test_quant_bank.py`，模拟和公式对不上会报错。
+- 图里「模拟」那一列，是现场跑卡片上那段代码得到的（seed = 0）。
+- 只生成文件，不会自动发。小红书禁止 AI 托管代发，自己看一遍再手动发。
+- 每篇发出 48 小时后，在 `data/xhs_stats.csv` 记一行数据。
+
 ## 其他
 
 - `portfolio/`：接单作品集（Pine 指标、定投回测、Hyperliquid 工具）
